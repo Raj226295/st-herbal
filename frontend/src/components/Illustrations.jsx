@@ -35,6 +35,15 @@ export function SearchIcon() {
   )
 }
 
+export function MailIcon() {
+  return (
+    <Svg>
+      <rect x="4" y="6.5" width="16" height="11" rx="2.4" {...iconProps} />
+      <path d="M5.4 8L12 12.8L18.6 8" {...iconProps} />
+    </Svg>
+  )
+}
+
 export function MenuIcon() {
   return (
     <Svg>
@@ -95,6 +104,34 @@ export function ArrowIcon() {
     <Svg>
       <path d="M5 12H19" {...iconProps} />
       <path d="M13 6L19 12L13 18" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function ChevronDownIcon() {
+  return (
+    <Svg>
+      <path d="M6.5 9.5L12 15L17.5 9.5" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function EyeIcon() {
+  return (
+    <Svg>
+      <path d="M2.8 12C4.8 8.5 8.1 6.5 12 6.5C15.9 6.5 19.2 8.5 21.2 12C19.2 15.5 15.9 17.5 12 17.5C8.1 17.5 4.8 15.5 2.8 12Z" {...iconProps} />
+      <circle cx="12" cy="12" r="2.6" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function EyeOffIcon() {
+  return (
+    <Svg>
+      <path d="M4.4 4.4L19.6 19.6" {...iconProps} />
+      <path d="M9.9 6.8C10.6 6.6 11.3 6.5 12 6.5C15.9 6.5 19.2 8.5 21.2 12C20.4 13.4 19.4 14.6 18.2 15.6" {...iconProps} />
+      <path d="M15 15.2C14.1 15.9 13.1 16.2 12 16.2C8.1 16.2 4.8 14.3 2.8 11C3.6 9.7 4.5 8.6 5.7 7.7" {...iconProps} />
+      <path d="M10.6 10.6C10.2 11 10 11.5 10 12C10 13.1 10.9 14 12 14C12.5 14 13 13.8 13.4 13.4" {...iconProps} />
     </Svg>
   )
 }

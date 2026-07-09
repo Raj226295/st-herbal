@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useState } from 'react'
 import fallbackHomepage from '@shared/homepageData.js'
+import { LoginPage, SignupPage } from './components/AuthPages.jsx'
 import HomePage from './components/HomePage.jsx'
 import ShopPage from './components/ShopPage.jsx'
 
@@ -9,6 +10,47 @@ const fallbackCategoryMap = new Map(
 const fallbackPillarMap = new Map(
   fallbackHomepage.roots.pillars.map((pillar) => [pillar.id, pillar]),
 )
+const authUsersStorageKey = 'st-herbal-users'
+const authSessionStorageKey = 'st-herbal-session'
+
+function getStoredUsers() {
+  try {
+    const rawUsers = window.localStorage.getItem(authUsersStorageKey)
+    const parsedUsers = JSON.parse(rawUsers ?? '[]')
+
+    return Array.isArray(parsedUsers) ? parsedUsers : []
+  } catch {
+    return []
+  }
+}
+
+function getStoredSession() {
+  try {
+    const rawSession = window.localStorage.getItem(authSessionStorageKey)
+    const parsedSession = JSON.parse(rawSession ?? 'null')
+
+    return parsedSession && typeof parsedSession === 'object' ? parsedSession : null
+  } catch {
+    return null
+  }
+}
+
+function saveStoredUsers(users) {
+  window.localStorage.setItem(authUsersStorageKey, JSON.stringify(users))
+}
+
+function saveStoredSession(user) {
+  window.localStorage.setItem(authSessionStorageKey, JSON.stringify(user))
+}
+
+function clearStoredSession() {
+  window.localStorage.removeItem(authSessionStorageKey)
+}
+
+function sanitizeUser(user) {
+  const { password, ...safeUser } = user
+  return safeUser
+}
 
 function resolveHomepageData(payload) {
   if (!payload || typeof payload !== 'object') {
@@ -94,6 +136,14 @@ function getCurrentRoute() {
     return 'shop'
   }
 
+  if (hash.startsWith('/signup')) {
+    return 'signup'
+  }
+
+  if (hash.startsWith('/login')) {
+    return 'login'
+  }
+
   return 'home'
 }
 
@@ -101,6 +151,20 @@ function App() {
   const [data, setData] = useState(fallbackHomepage)
   const [status, setStatus] = useState('loading')
   const [route, setRoute] = useState(() => getCurrentRoute())
+  const [currentUser, setCurrentUser] = useState(() => getStoredSession())
+  const [flashMessage, setFlashMessage] = useState(null)
+
+  useEffect(() => {
+    if (!flashMessage) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setFlashMessage(null)
+    }, 3200)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [flashMessage])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -145,11 +209,128 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  if (route === 'shop') {
-    return <ShopPage data={data} />
+  function navigateTo(routeHash) {
+    window.location.hash = routeHash
   }
 
-  return <HomePage data={data} status={status} />
+  function handleSignup(formData) {
+    const users = getStoredUsers()
+    const normalizedEmail = formData.email.trim().toLowerCase()
+    const normalizedMobile = formData.mobile.replace(/\D/g, '')
+
+    if (users.some((user) => user.email === normalizedEmail)) {
+      return {
+        ok: false,
+        field: 'email',
+        error: 'An account with this email already exists.',
+      }
+    }
+
+    if (users.some((user) => user.mobile === normalizedMobile)) {
+      return {
+        ok: false,
+        field: 'mobile',
+        error: 'An account with this mobile number already exists.',
+      }
+    }
+
+    const newUser = {
+      id:
+        typeof window.crypto?.randomUUID === 'function'
+          ? window.crypto.randomUUID()
+          : `${Date.now()}`,
+      fullName: formData.fullName.trim(),
+      email: normalizedEmail,
+      mobile: normalizedMobile,
+      password: formData.password,
+    }
+    const sessionUser = sanitizeUser(newUser)
+
+    saveStoredUsers([...users, newUser])
+    saveStoredSession(sessionUser)
+    setCurrentUser(sessionUser)
+    setFlashMessage({ type: 'success', message: 'Account created successfully.' })
+    navigateTo('#/')
+
+    return { ok: true }
+  }
+
+  function handleLogin(formData) {
+    const users = getStoredUsers()
+    const normalizedIdentifier = formData.identifier.trim().toLowerCase()
+    const normalizedMobile = formData.identifier.replace(/\D/g, '')
+    const matchedUser = users.find(
+      (user) =>
+        user.email === normalizedIdentifier || user.mobile === normalizedMobile,
+    )
+
+    if (!matchedUser || matchedUser.password !== formData.password) {
+      return {
+        ok: false,
+        error: 'Invalid email/mobile number or password.',
+      }
+    }
+
+    const sessionUser = sanitizeUser(matchedUser)
+    saveStoredSession(sessionUser)
+    setCurrentUser(sessionUser)
+    setFlashMessage({ type: 'success', message: 'Login successful.' })
+    navigateTo('#/')
+
+    return { ok: true }
+  }
+
+  function handleLogout() {
+    clearStoredSession()
+    setCurrentUser(null)
+    setFlashMessage({ type: 'success', message: 'Logged out successfully.' })
+    navigateTo('#/')
+  }
+
+  if (route === 'shop') {
+    return (
+      <ShopPage
+        currentUser={currentUser}
+        data={data}
+        flashMessage={flashMessage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (route === 'login') {
+    return (
+      <LoginPage
+        currentUser={currentUser}
+        data={data}
+        flashMessage={flashMessage}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (route === 'signup') {
+    return (
+      <SignupPage
+        currentUser={currentUser}
+        data={data}
+        flashMessage={flashMessage}
+        onLogout={handleLogout}
+        onSignup={handleSignup}
+      />
+    )
+  }
+
+  return (
+    <HomePage
+      currentUser={currentUser}
+      data={data}
+      flashMessage={flashMessage}
+      onLogout={handleLogout}
+      status={status}
+    />
+  )
 }
 
 export default App

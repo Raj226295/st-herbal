@@ -1,12 +1,18 @@
 import ProductCard from './ProductCard.jsx'
 import SiteChrome from './SiteChrome.jsx'
 
-function ShopPage({ data }) {
+function ShopPage({ currentUser, data, flashMessage, onLogout }) {
   const allProducts = data.shop.products
   const categories = [...new Set(allProducts.map((product) => product.category))]
 
   return (
-    <SiteChrome data={data} currentPage="shop">
+    <SiteChrome
+      currentPage="shop"
+      currentUser={currentUser}
+      data={data}
+      flashMessage={flashMessage}
+      onLogout={onLogout}
+    >
       <section className="shop-page">
         <div className="shop-hero-banner surface-card">
           <div className="shop-hero-banner__copy">

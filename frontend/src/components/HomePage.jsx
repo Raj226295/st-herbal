@@ -82,7 +82,7 @@ function TrustStrip({ items }) {
   )
 }
 
-function HomePage({ data, status }) {
+function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
   const categoryGridRef = useRef(null)
   const [activeHeroSlide, setActiveHeroSlide] = useState(0)
   const renderedCategories = [...data.categories, ...data.categories]
@@ -185,7 +185,13 @@ function HomePage({ data, status }) {
   }, [data.categories])
 
   return (
-    <SiteChrome currentPage="home" data={data}>
+    <SiteChrome
+      currentPage="home"
+      currentUser={currentUser}
+      data={data}
+      flashMessage={flashMessage}
+      onLogout={onLogout}
+    >
         <section className="hero-card">
           <div className="hero-card__status">{statusText}</div>
           <div className="hero-card__viewport">
@@ -278,7 +284,11 @@ function HomePage({ data, status }) {
               return (
                 <article className="pillar-card" key={pillar.id}>
                   {pillar.image ? (
-                    <img className="pillar-card__image" src={pillar.image} alt={pillar.label} />
+                    <img
+                      className={`pillar-card__image pillar-card__image--${pillar.id}`}
+                      src={pillar.image}
+                      alt={pillar.label}
+                    />
                   ) : (
                     <span className="icon-shell icon-shell--outline">
                       <Icon />

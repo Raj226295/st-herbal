@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from 'react'
 import {
-  ArrowIcon,
   BagIcon,
   BrandLogo,
+  ChevronDownIcon,
   PhoneIcon,
   PinIcon,
   SearchIcon,
@@ -31,7 +32,35 @@ function getNavHref(label) {
   return '#'
 }
 
-function SiteChrome({ data, currentPage, children }) {
+const accountMenuItems = [
+  { id: 'profile', label: 'My Profile' },
+  { id: 'orders', label: 'My Orders' },
+  { id: 'track', label: 'Track Orders' },
+  { id: 'wishlist', label: 'Wishlist' },
+  { id: 'cart', label: 'Cart', href: '#/shop' },
+  { id: 'address', label: 'Saved Address' },
+]
+
+function SiteChrome({ children, currentPage, currentUser, data, flashMessage, onLogout }) {
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const accountMenuRef = useRef(null)
+  const userLabel = currentUser?.fullName?.split(' ')[0] ?? 'Account'
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) {
+        setIsAccountOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [])
+
+  useEffect(() => {
+    setIsAccountOpen(false)
+  }, [currentPage, currentUser])
+
   return (
     <div className="page-shell">
       <div className="announcement-bar">
@@ -68,6 +97,79 @@ function SiteChrome({ data, currentPage, children }) {
           <div className="shortcut-list">
             {data.header.shortcuts.map((shortcut) => {
               const Icon = shortcutIcons[shortcut.icon]
+
+              if (shortcut.id === 'account') {
+                if (!currentUser) {
+                  return (
+                    <a className="shortcut-button shortcut-button--link" href="#/login" key={shortcut.id}>
+                      <Icon />
+                      <span>{shortcut.label}</span>
+                    </a>
+                  )
+                }
+
+                return (
+                  <div className="account-shortcut" key={shortcut.id} ref={accountMenuRef}>
+                    <button
+                      aria-expanded={isAccountOpen}
+                      aria-haspopup="menu"
+                      className="shortcut-button shortcut-button--account"
+                      onClick={() => setIsAccountOpen((currentValue) => !currentValue)}
+                      type="button"
+                    >
+                      <span className="shortcut-button__avatar">
+                        <Icon />
+                      </span>
+                      <span>{userLabel}</span>
+                      <ChevronDownIcon />
+                    </button>
+
+                    {isAccountOpen ? (
+                      <div className="account-menu surface-card">
+                        <div className="account-menu__header">
+                          <strong>{currentUser.fullName}</strong>
+                          <span>{currentUser.email}</span>
+                        </div>
+
+                        <div className="account-menu__list" role="menu">
+                          {accountMenuItems.map((item) =>
+                            item.href ? (
+                              <a
+                                className="account-menu__item"
+                                href={item.href}
+                                key={item.id}
+                                onClick={() => setIsAccountOpen(false)}
+                              >
+                                {item.label}
+                              </a>
+                            ) : (
+                              <button
+                                className="account-menu__item"
+                                key={item.id}
+                                onClick={() => setIsAccountOpen(false)}
+                                type="button"
+                              >
+                                {item.label}
+                              </button>
+                            ),
+                          )}
+
+                          <button
+                            className="account-menu__item account-menu__item--danger"
+                            onClick={() => {
+                              setIsAccountOpen(false)
+                              onLogout?.()
+                            }}
+                            type="button"
+                          >
+                            Logout
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              }
 
               return (
                 <button className="shortcut-button" key={shortcut.id} type="button">
@@ -110,13 +212,20 @@ function SiteChrome({ data, currentPage, children }) {
         </div>
       </header>
 
-      <main className="main-content">{children}</main>
+      <main className="main-content">
+        {flashMessage ? (
+          <div className={`site-alert site-alert--${flashMessage.type ?? 'success'}`}>
+            {flashMessage.message}
+          </div>
+        ) : null}
+        {children}
+      </main>
 
       <footer className="site-footer">
         <section className="newsletter">
           <div className="newsletter__title">
             <span className="icon-shell">
-              <ArrowIcon />
+              <img className="newsletter__icon-image" src="/images/icons/mail-icon.png" alt="Mail" />
             </span>
             <h2>{data.footer.newsletterTitle}</h2>
           </div>
@@ -178,7 +287,10 @@ function SiteChrome({ data, currentPage, children }) {
           <div className="payment-list">
             <span>we accept</span>
             {data.footer.payments.map((payment) => (
-              <span className="payment-badge" key={payment.id ?? payment.label}>
+              <span
+                className={`payment-badge ${payment.image ? 'payment-badge--logo' : 'payment-badge--text'}`}
+                key={payment.id ?? payment.label}
+              >
                 {payment.image ? (
                   <img
                     className="payment-badge__image"
