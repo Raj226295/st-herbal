@@ -178,8 +178,16 @@ function SiteChrome({ data, currentPage, children }) {
           <div className="payment-list">
             <span>we accept</span>
             {data.footer.payments.map((payment) => (
-              <span className="payment-badge" key={payment}>
-                {payment}
+              <span className="payment-badge" key={payment.id ?? payment.label}>
+                {payment.image ? (
+                  <img
+                    className="payment-badge__image"
+                    src={payment.image}
+                    alt={payment.label}
+                  />
+                ) : (
+                  payment.label
+                )}
               </span>
             ))}
           </div>

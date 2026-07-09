@@ -17,11 +17,11 @@ function Svg({ children, viewBox = '0 0 24 24', className = '' }) {
 export function BrandLogo({ dark = false }) {
   return (
     <div className={`brand-logo ${dark ? 'brand-logo--dark' : ''}`} aria-label="ST Herbal Care">
-      <img
-        src="/images/brand-logo.jpeg"
-        className="brand-logo__image"
-        alt="ST Herbal Care"
-      />
+      <img src="/images/brand-logo-mark.png" className="brand-logo__image" alt="ST Herbal Care" />
+      <div className="brand-logo__text">
+        <strong>ST HERBAL</strong>
+        <span>CARE</span>
+      </div>
     </div>
   )
 }

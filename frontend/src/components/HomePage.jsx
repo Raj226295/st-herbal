@@ -1,32 +1,18 @@
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowIcon,
-  BalanceIcon,
   CertifiedIcon,
   DeliveryBannerArt,
   DeliveryIcon,
-  GlowIcon,
-  HairIcon,
-  HeartPulseIcon,
   LeafIcon,
   LockIcon,
   NoSideEffectsIcon,
   RefreshIcon,
   ShieldCheckIcon,
-  SkinIcon,
-  StrengthIcon,
   WalletIcon,
 } from './Illustrations.jsx'
 import ProductCard from './ProductCard.jsx'
 import SiteChrome from './SiteChrome.jsx'
-
-const categoryIcons = {
-  pulse: HeartPulseIcon,
-  strength: StrengthIcon,
-  glow: GlowIcon,
-  hair: HairIcon,
-  skin: SkinIcon,
-  balance: BalanceIcon,
-}
 
 const pillarIcons = {
   certified: CertifiedIcon,
@@ -97,6 +83,21 @@ function TrustStrip({ items }) {
 }
 
 function HomePage({ data, status }) {
+  const categoryGridRef = useRef(null)
+  const [activeHeroSlide, setActiveHeroSlide] = useState(0)
+  const renderedCategories = [...data.categories, ...data.categories]
+  const heroSlides =
+    Array.isArray(data.hero?.slides) && data.hero.slides.length > 0
+      ? data.hero.slides
+      : [
+          {
+            id: 'hero-default',
+            title: data.hero.title,
+            subtitle: data.hero.subtitle,
+            image: '/images/hero-banner.png',
+            alt: `${data.hero.title} ${data.hero.subtitle}`,
+          },
+        ]
   const statusText =
     status === 'connected'
       ? 'API connected'
@@ -104,27 +105,136 @@ function HomePage({ data, status }) {
         ? 'Using shared demo data'
         : 'Syncing catalog'
 
+  useEffect(() => {
+    if (heroSlides.length < 2) {
+      return undefined
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveHeroSlide((currentSlide) => (currentSlide + 1) % heroSlides.length)
+    }, 6000)
+
+    return () => window.clearInterval(intervalId)
+  }, [heroSlides.length])
+
+  useEffect(() => {
+    if (activeHeroSlide >= heroSlides.length) {
+      setActiveHeroSlide(0)
+    }
+  }, [activeHeroSlide, heroSlides.length])
+
+  useEffect(() => {
+    const grid = categoryGridRef.current
+
+    if (!grid || data.categories.length < 2) {
+      return undefined
+    }
+
+    let resetTimeoutId
+
+    function getGap() {
+      const gridStyles = window.getComputedStyle(grid)
+      return Number.parseFloat(gridStyles.columnGap || gridStyles.gap || '0')
+    }
+
+    function getStep() {
+      const firstCard = grid.querySelector('.category-card')
+
+      if (!firstCard) {
+        return 0
+      }
+
+      return firstCard.getBoundingClientRect().width + getGap()
+    }
+
+    function getLoopWidth() {
+      return grid.scrollWidth / 2
+    }
+
+    const intervalId = window.setInterval(() => {
+      const step = getStep()
+      const loopWidth = getLoopWidth()
+
+      if (!step || !loopWidth) {
+        return
+      }
+
+      const nextScrollLeft = grid.scrollLeft + step
+
+      if (nextScrollLeft >= loopWidth - 4) {
+        grid.scrollTo({ left: loopWidth, behavior: 'smooth' })
+        window.clearTimeout(resetTimeoutId)
+        resetTimeoutId = window.setTimeout(() => {
+          grid.scrollTo({ left: 0 })
+        }, 420)
+        return
+      }
+
+      if (grid.scrollLeft >= loopWidth - 4) {
+        grid.scrollTo({ left: 0, behavior: 'smooth' })
+        return
+      }
+
+      grid.scrollTo({ left: nextScrollLeft, behavior: 'smooth' })
+    }, 2000)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.clearTimeout(resetTimeoutId)
+    }
+  }, [data.categories])
+
   return (
     <SiteChrome currentPage="home" data={data}>
         <section className="hero-card">
           <div className="hero-card__status">{statusText}</div>
-          <img
-            src="/images/hero-banner.png"
-            className="hero-card__banner-image"
-            alt={`${data.hero.title} ${data.hero.subtitle}`}
-          />
+          <div className="hero-card__viewport">
+            <div
+              className="hero-card__track"
+              style={{ transform: `translateX(-${activeHeroSlide * 100}%)` }}
+            >
+              {heroSlides.map((slide) => (
+                <div className="hero-card__slide" key={slide.id}>
+                  <img
+                    src={slide.image}
+                    className="hero-card__banner-image"
+                    alt={slide.alt ?? `${slide.title} ${slide.subtitle}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          {heroSlides.length > 1 ? (
+            <div className="hero-card__dots" aria-label="Hero banner slides">
+              {heroSlides.map((slide, index) => (
+                <button
+                  aria-label={`Show ${slide.title}`}
+                  aria-pressed={activeHeroSlide === index}
+                  className={`hero-card__dot ${activeHeroSlide === index ? 'is-active' : ''}`}
+                  key={slide.id}
+                  onClick={() => setActiveHeroSlide(index)}
+                  type="button"
+                />
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="category-strip surface-card">
-          <div className="category-grid">
-            {data.categories.map((category) => {
-              const Icon = categoryIcons[category.icon]
-
+          <div className="category-grid" ref={categoryGridRef}>
+            {renderedCategories.map((category, index) => {
               return (
-                <article className={`category-card category-card--${category.tone}`} key={category.id}>
+                <article
+                  className={`category-card category-card--${category.tone}`}
+                  key={`${category.id}-${index}`}
+                >
                   <div className="category-card__visual">
-                    <span className="category-card__halo" />
-                    <Icon />
+                    <img
+                      className="category-card__image"
+                      src={category.image}
+                      alt={category.title}
+                      loading="lazy"
+                    />
                   </div>
                   <h3>{category.title}</h3>
                   <p>{category.subtitle}</p>
@@ -167,9 +277,13 @@ function HomePage({ data, status }) {
 
               return (
                 <article className="pillar-card" key={pillar.id}>
-                  <span className="icon-shell icon-shell--outline">
-                    <Icon />
-                  </span>
+                  {pillar.image ? (
+                    <img className="pillar-card__image" src={pillar.image} alt={pillar.label} />
+                  ) : (
+                    <span className="icon-shell icon-shell--outline">
+                      <Icon />
+                    </span>
+                  )}
                   <h3>{pillar.label}</h3>
                 </article>
               )
