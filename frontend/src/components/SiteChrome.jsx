@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BagIcon,
   BrandLogo,
   ChevronDownIcon,
+  CloseIcon,
+  HeartIcon,
+  HomeIcon,
   PhoneIcon,
   PinIcon,
   SearchIcon,
@@ -20,6 +23,14 @@ const shortcutIcons = {
   phone: PhoneIcon,
 }
 
+const cartStorageKey = 'st-herbal-cart'
+const cartUpdatedEventName = 'st-herbal-cart-updated'
+const currency = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+})
+
 function getNavHref(label) {
   if (label === 'Home') {
     return '#/'
@@ -27,6 +38,14 @@ function getNavHref(label) {
 
   if (label === 'Shop') {
     return '#/shop'
+  }
+
+  if (label === 'About Us') {
+    return '#/about'
+  }
+
+  if (label === 'Contact') {
+    return '#/contact'
   }
 
   return '#'
@@ -41,10 +60,83 @@ const accountMenuItems = [
   { id: 'address', label: 'Saved Address' },
 ]
 
+const mobileDrawerLinks = [
+  { id: 'home', label: 'Home', href: '#/', route: 'home' },
+  { id: 'shop', label: 'Shop', href: '#/shop', route: 'shop' },
+  { id: 'about', label: 'About Us', href: '#/about', route: 'about' },
+  { id: 'blogs', label: 'Blogs', href: '#' },
+  { id: 'contact', label: 'Contact', href: '#/contact', route: 'contact' },
+]
+
+function readStoredJson(key, fallbackValue) {
+  try {
+    const rawValue = window.localStorage.getItem(key)
+    const parsedValue = JSON.parse(rawValue ?? 'null')
+    return parsedValue ?? fallbackValue
+  } catch {
+    return fallbackValue
+  }
+}
+
+function getCartCount(items) {
+  if (!Array.isArray(items)) {
+    return 0
+  }
+
+  return items.reduce((total, item) => total + Math.max(1, Number(item.quantity) || 1), 0)
+}
+
+function persistCartItems(nextItems) {
+  window.localStorage.setItem(cartStorageKey, JSON.stringify(nextItems))
+  window.dispatchEvent(new CustomEvent(cartUpdatedEventName, { detail: nextItems }))
+}
+
 function SiteChrome({ children, currentPage, currentUser, data, flashMessage, onLogout }) {
   const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const [isMobileAccountOpen, setIsMobileAccountOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false)
+  const [cartCount, setCartCount] = useState(() =>
+    getCartCount(readStoredJson(cartStorageKey, [])),
+  )
+  const [cartItems, setCartItems] = useState(() => readStoredJson(cartStorageKey, []))
   const accountMenuRef = useRef(null)
+  const mobileSearchInputRef = useRef(null)
   const userLabel = currentUser?.fullName?.split(' ')[0] ?? 'Account'
+  const cartLabel = cartCount > 0 ? `Cart (${cartCount})` : 'Cart'
+  const productMap = useMemo(
+    () => new Map((data?.shop?.products ?? []).map((product) => [product.id, product])),
+    [data?.shop?.products],
+  )
+  const resolvedAccountMenuItems = useMemo(
+    () =>
+      accountMenuItems.map((item) =>
+        item.id === 'cart' ? { ...item, href: '#/cart', label: cartLabel } : item,
+      ),
+    [cartLabel],
+  )
+  const resolvedCartItems = useMemo(
+    () =>
+      cartItems
+        .map((item) => {
+          const matchingProduct = productMap.get(item.id)
+
+          return {
+            id: item.id,
+            name: item.name ?? matchingProduct?.name ?? 'Herbal Product',
+            image: item.image ?? matchingProduct?.image ?? '',
+            price: item.price ?? matchingProduct?.price ?? 0,
+            quantity: Math.max(1, Number(item.quantity) || 1),
+          }
+        })
+        .filter((item) => item.name),
+    [cartItems, productMap],
+  )
+  const cartSubtotal = useMemo(
+    () => resolvedCartItems.reduce((total, item) => total + item.price * item.quantity, 0),
+    [resolvedCartItems],
+  )
 
   useEffect(() => {
     function handlePointerDown(event) {
@@ -59,7 +151,104 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
 
   useEffect(() => {
     setIsAccountOpen(false)
+    setIsMobileAccountOpen(false)
+    setIsMobileMenuOpen(false)
+    setIsMobileSearchOpen(false)
+    setIsCartDrawerOpen(false)
   }, [currentPage, currentUser])
+
+  useEffect(() => {
+    if (!isMobileSearchOpen) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      mobileSearchInputRef.current?.focus()
+    }, 120)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [isMobileSearchOpen])
+
+  useEffect(() => {
+    const shouldLockScroll = isMobileAccountOpen || isMobileMenuOpen || isCartDrawerOpen
+
+    if (!shouldLockScroll) {
+      return undefined
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isCartDrawerOpen, isMobileAccountOpen, isMobileMenuOpen])
+
+  useEffect(() => {
+    function syncCartState(nextItems) {
+      const resolvedItems = nextItems ?? readStoredJson(cartStorageKey, [])
+      setCartItems(resolvedItems)
+      setCartCount(getCartCount(resolvedItems))
+    }
+
+    function handleStorage(event) {
+      if (event.key && event.key !== cartStorageKey) {
+        return
+      }
+
+      syncCartState()
+    }
+
+    function handleCartUpdated(event) {
+      syncCartState(Array.isArray(event.detail) ? event.detail : undefined)
+    }
+
+    syncCartState()
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener(cartUpdatedEventName, handleCartUpdated)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener(cartUpdatedEventName, handleCartUpdated)
+    }
+  }, [])
+
+  function openLoginPage() {
+    window.location.hash = '#/login'
+  }
+
+  function handleMobileAccountAction() {
+    if (!currentUser) {
+      openLoginPage()
+      return
+    }
+
+    setIsMobileAccountOpen(true)
+  }
+
+  function handleWishlistAction() {
+    if (!currentUser) {
+      openLoginPage()
+      return
+    }
+
+    setIsMobileAccountOpen(true)
+  }
+
+  function openCartDrawer() {
+    setIsCartDrawerOpen(true)
+  }
+
+  function closeCartDrawer() {
+    setIsCartDrawerOpen(false)
+  }
+
+  function removeCartItem(productId) {
+    const nextItems = cartItems.filter((item) => item.id !== productId)
+    setCartItems(nextItems)
+    setCartCount(getCartCount(nextItems))
+    persistCartItems(nextItems)
+  }
 
   return (
     <div className="page-shell">
@@ -77,6 +266,43 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
       </div>
 
       <header className="masthead">
+        <div className="mobile-masthead">
+          <button
+            aria-label="Open navigation menu"
+            className="mobile-icon-button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            type="button"
+          >
+            <MenuIcon />
+          </button>
+
+          <a className="mobile-brand-link" href="#/">
+            <BrandLogo />
+          </a>
+
+          <button
+            aria-label={cartLabel}
+            className="mobile-icon-button mobile-icon-button--link"
+            onClick={openCartDrawer}
+            type="button"
+          >
+            <BagIcon />
+          </button>
+        </div>
+
+        {isMobileSearchOpen ? (
+          <div className="mobile-search">
+            <label className="searchbar">
+              <SearchIcon />
+              <input
+                placeholder={data.header.searchPlaceholder}
+                ref={mobileSearchInputRef}
+                type="text"
+              />
+            </label>
+          </div>
+        ) : null}
+
         <div className="masthead__top">
           <a className="brand-logo-link" href="#/">
             <BrandLogo />
@@ -132,7 +358,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
                         </div>
 
                         <div className="account-menu__list" role="menu">
-                          {accountMenuItems.map((item) =>
+                          {resolvedAccountMenuItems.map((item) =>
                             item.href ? (
                               <a
                                 className="account-menu__item"
@@ -171,6 +397,20 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
                 )
               }
 
+              if (shortcut.id === 'cart') {
+                return (
+                  <button
+                    className="shortcut-button shortcut-button--link"
+                    key={shortcut.id}
+                    onClick={openCartDrawer}
+                    type="button"
+                  >
+                    <Icon />
+                    <span>{cartLabel}</span>
+                  </button>
+                )
+              }
+
               return (
                 <button className="shortcut-button" key={shortcut.id} type="button">
                   <Icon />
@@ -187,7 +427,9 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
               const href = getNavHref(link)
               const isActive =
                 (currentPage === 'home' && link === 'Home') ||
-                (currentPage === 'shop' && link === 'Shop')
+                ((currentPage === 'shop' || currentPage === 'cart') && link === 'Shop') ||
+                (currentPage === 'about' && link === 'About Us') ||
+                (currentPage === 'contact' && link === 'Contact')
 
               return (
                 <a className={isActive ? 'is-active' : ''} href={href} key={link}>
@@ -211,6 +453,177 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
           </div>
         </div>
       </header>
+
+      {isMobileMenuOpen ? (
+        <div
+          className="mobile-overlay"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <aside
+            aria-label="Mobile navigation menu"
+            className="mobile-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              aria-label="Close navigation menu"
+              className="mobile-drawer__close"
+              onClick={() => setIsMobileMenuOpen(false)}
+              type="button"
+            >
+              <CloseIcon />
+            </button>
+
+            <a className="mobile-drawer__brand" href="#/" onClick={() => setIsMobileMenuOpen(false)}>
+              <BrandLogo />
+            </a>
+
+            <nav className="mobile-drawer__nav" aria-label="Mobile primary navigation">
+              {mobileDrawerLinks.map((link) => {
+                const isActive = link.route ? link.route === currentPage : false
+
+                return (
+                  <a
+                    className={`mobile-drawer__link ${isActive ? 'is-active' : ''}`}
+                    href={link.href}
+                    key={link.id}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link.label}
+                  </a>
+                )
+              })}
+            </nav>
+          </aside>
+        </div>
+      ) : null}
+
+      {isMobileAccountOpen ? (
+        <div
+          className="mobile-overlay mobile-overlay--soft"
+          onClick={() => setIsMobileAccountOpen(false)}
+        >
+          <div
+            aria-label="My account"
+            className="mobile-sheet surface-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mobile-sheet__handle" />
+            <div className="mobile-sheet__header">
+              <div>
+                <strong>{currentUser?.fullName}</strong>
+                <span>{currentUser?.email}</span>
+              </div>
+              <button
+                aria-label="Close account panel"
+                className="mobile-sheet__close"
+                onClick={() => setIsMobileAccountOpen(false)}
+                type="button"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div className="mobile-sheet__list">
+              {resolvedAccountMenuItems.map((item) =>
+                item.href ? (
+                  <a
+                    className="mobile-sheet__item"
+                    href={item.href}
+                    key={item.id}
+                    onClick={() => setIsMobileAccountOpen(false)}
+                  >
+                    {item.label}
+                  </a>
+                ) : (
+                  <button
+                    className="mobile-sheet__item"
+                    key={item.id}
+                    onClick={() => setIsMobileAccountOpen(false)}
+                    type="button"
+                  >
+                    {item.label}
+                  </button>
+                ),
+              )}
+
+              <button
+                className="mobile-sheet__item mobile-sheet__item--danger"
+                onClick={() => {
+                  setIsMobileAccountOpen(false)
+                  onLogout?.()
+                }}
+                type="button"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isCartDrawerOpen ? (
+        <div className="cart-overlay" onClick={closeCartDrawer}>
+          <aside
+            aria-label="Shopping cart"
+            className="cart-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="cart-drawer__header">
+              <strong>shopping cart</strong>
+              <button className="cart-drawer__close" onClick={closeCartDrawer} type="button">
+                <span>close</span>
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div className="cart-drawer__body">
+              {resolvedCartItems.length > 0 ? (
+                resolvedCartItems.map((item) => (
+                  <article className="cart-drawer__item" key={item.id}>
+                    <div className="cart-drawer__media">
+                      {item.image ? <img src={item.image} alt={item.name} /> : null}
+                    </div>
+
+                    <div className="cart-drawer__content">
+                      <button
+                        aria-label={`Remove ${item.name} from cart`}
+                        className="cart-drawer__remove"
+                        onClick={() => removeCartItem(item.id)}
+                        type="button"
+                      >
+                        <CloseIcon />
+                      </button>
+                      <h3>{item.name}</h3>
+                      <div className="cart-drawer__meta">
+                        <span>{item.quantity} ×</span>
+                        <strong>{currency.format(item.price)}</strong>
+                      </div>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="cart-drawer__empty">
+                  <h3>Your cart is empty</h3>
+                  <p>Like ya add to cart karte hi product yahan show ho jayega.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="cart-drawer__footer">
+              <div className="cart-drawer__subtotal">
+                <span>Subtotal:</span>
+                <strong>{currency.format(cartSubtotal)}</strong>
+              </div>
+              <a className="cart-drawer__button cart-drawer__button--outline" href="#/cart" onClick={closeCartDrawer}>
+                View cart
+              </a>
+              <a className="cart-drawer__button" href="#/cart" onClick={closeCartDrawer}>
+                Checkout
+              </a>
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       <main className="main-content">
         {flashMessage ? (
@@ -306,6 +719,39 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
           <p>{data.footer.copyright}</p>
         </section>
       </footer>
+
+      <nav className="mobile-bottom-nav" aria-label="Mobile quick navigation">
+        <a
+          className={`mobile-bottom-nav__item ${currentPage === 'shop' || currentPage === 'cart' ? 'is-active' : ''}`}
+          href="#/shop"
+        >
+          <HomeIcon />
+          <span>Shop</span>
+        </a>
+
+        <button
+          className={`mobile-bottom-nav__item ${currentPage === 'login' || currentPage === 'signup' || isMobileAccountOpen ? 'is-active' : ''}`}
+          onClick={handleMobileAccountAction}
+          type="button"
+        >
+          <UserIcon />
+          <span>Account</span>
+        </button>
+
+        <button
+          className={`mobile-bottom-nav__item ${isMobileSearchOpen ? 'is-active' : ''}`}
+          onClick={() => setIsMobileSearchOpen((currentValue) => !currentValue)}
+          type="button"
+        >
+          <SearchIcon />
+          <span>Search</span>
+        </button>
+
+        <button className="mobile-bottom-nav__item" onClick={handleWishlistAction} type="button">
+          <HeartIcon />
+          <span>Wishlist</span>
+        </button>
+      </nav>
     </div>
   )
 }

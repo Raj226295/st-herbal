@@ -85,7 +85,10 @@ function TrustStrip({ items }) {
 function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
   const categoryGridRef = useRef(null)
   const [activeHeroSlide, setActiveHeroSlide] = useState(0)
-  const renderedCategories = [...data.categories, ...data.categories]
+  const [isMobileCatalogView, setIsMobileCatalogView] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 820px)').matches : false,
+  )
+  const renderedCategories = isMobileCatalogView ? data.categories : [...data.categories, ...data.categories]
   const heroSlides =
     Array.isArray(data.hero?.slides) && data.hero.slides.length > 0
       ? data.hero.slides
@@ -104,6 +107,25 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
       : status === 'fallback'
         ? 'Using shared demo data'
         : 'Syncing catalog'
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 820px)')
+    const handleChange = (event) => setIsMobileCatalogView(event.matches)
+
+    setIsMobileCatalogView(mediaQuery.matches)
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    }
+
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
+  }, [])
 
   useEffect(() => {
     if (heroSlides.length < 2) {
@@ -126,7 +148,7 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
   useEffect(() => {
     const grid = categoryGridRef.current
 
-    if (!grid || data.categories.length < 2) {
+    if (!grid || data.categories.length < 2 || isMobileCatalogView) {
       return undefined
     }
 
@@ -182,7 +204,7 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
       window.clearInterval(intervalId)
       window.clearTimeout(resetTimeoutId)
     }
-  }, [data.categories])
+  }, [data.categories, isMobileCatalogView])
 
   return (
     <SiteChrome

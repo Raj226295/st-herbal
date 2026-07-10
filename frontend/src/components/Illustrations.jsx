@@ -16,11 +16,11 @@ function Svg({ children, viewBox = '0 0 24 24', className = '' }) {
 
 export function BrandLogo({ dark = false }) {
   return (
-    <div className={`brand-logo ${dark ? 'brand-logo--dark' : ''}`} aria-label="ST Herbal Care">
-      <img src="/images/brand-logo-mark.png" className="brand-logo__image" alt="ST Herbal Care" />
+    <div className={`brand-logo ${dark ? 'brand-logo--dark' : ''}`} aria-label="ST Herbal India">
+      <img src="/images/brand-logo-mark.png" className="brand-logo__image" alt="ST Herbal India" />
       <div className="brand-logo__text">
         <strong>ST HERBAL</strong>
-        <span>CARE</span>
+        <span>INDIA</span>
       </div>
     </div>
   )
@@ -54,6 +54,15 @@ export function MenuIcon() {
   )
 }
 
+export function CloseIcon() {
+  return (
+    <Svg>
+      <path d="M6 6L18 18" {...iconProps} />
+      <path d="M18 6L6 18" {...iconProps} />
+    </Svg>
+  )
+}
+
 export function TruckIcon() {
   return (
     <Svg>
@@ -79,6 +88,23 @@ export function BagIcon() {
     <Svg>
       <path d="M6 9H18L17 20H7Z" {...iconProps} />
       <path d="M9 9V7.8C9 6.3 10.3 5 12 5C13.7 5 15 6.3 15 7.8V9" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function HomeIcon() {
+  return (
+    <Svg>
+      <path d="M4.5 10.5L12 4L19.5 10.5" {...iconProps} />
+      <path d="M6.5 9.6V19H17.5V9.6" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function HeartIcon() {
+  return (
+    <Svg>
+      <path d="M12 20C6 16.5 3 13.3 3 8.8C3 6.2 5 4.2 7.7 4.2C9.4 4.2 11 5 12 6.5C13 5 14.6 4.2 16.3 4.2C19 4.2 21 6.2 21 8.8C21 13.3 18 16.5 12 20Z" {...iconProps} />
     </Svg>
   )
 }
@@ -112,6 +138,58 @@ export function ChevronDownIcon() {
   return (
     <Svg>
       <path d="M6.5 9.5L12 15L17.5 9.5" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function GridIcon() {
+  return (
+    <Svg>
+      <rect x="4.5" y="4.5" width="6" height="6" rx="1.2" {...iconProps} />
+      <rect x="13.5" y="4.5" width="6" height="6" rx="1.2" {...iconProps} />
+      <rect x="4.5" y="13.5" width="6" height="6" rx="1.2" {...iconProps} />
+      <rect x="13.5" y="13.5" width="6" height="6" rx="1.2" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function ListIcon() {
+  return (
+    <Svg>
+      <circle cx="6.2" cy="6.5" r="1.2" fill="currentColor" />
+      <circle cx="6.2" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="6.2" cy="17.5" r="1.2" fill="currentColor" />
+      <path d="M10 6.5H19" {...iconProps} />
+      <path d="M10 12H19" {...iconProps} />
+      <path d="M10 17.5H19" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function ExpandIcon() {
+  return (
+    <Svg>
+      <path d="M8 4.8H4.8V8" {...iconProps} />
+      <path d="M19.2 8V4.8H16" {...iconProps} />
+      <path d="M16 19.2H19.2V16" {...iconProps} />
+      <path d="M4.8 16V19.2H8" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function PlusIcon() {
+  return (
+    <Svg>
+      <path d="M12 5V19" {...iconProps} />
+      <path d="M5 12H19" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function MinusIcon() {
+  return (
+    <Svg>
+      <path d="M5 12H19" {...iconProps} />
     </Svg>
   )
 }

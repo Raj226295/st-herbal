@@ -1,6 +1,9 @@
 import { startTransition, useEffect, useState } from 'react'
 import fallbackHomepage from '@shared/homepageData.js'
+import AboutPage from './components/AboutPage.jsx'
 import { LoginPage, SignupPage } from './components/AuthPages.jsx'
+import CartPage from './components/CartPage.jsx'
+import ContactPage from './components/ContactPage.jsx'
 import HomePage from './components/HomePage.jsx'
 import ShopPage from './components/ShopPage.jsx'
 
@@ -131,6 +134,18 @@ function resolveHomepageData(payload) {
 
 function getCurrentRoute() {
   const hash = window.location.hash.replace(/^#/, '')
+
+  if (hash.startsWith('/contact')) {
+    return 'contact'
+  }
+
+  if (hash.startsWith('/about')) {
+    return 'about'
+  }
+
+  if (hash.startsWith('/cart')) {
+    return 'cart'
+  }
 
   if (hash.startsWith('/shop')) {
     return 'shop'
@@ -290,6 +305,39 @@ function App() {
   if (route === 'shop') {
     return (
       <ShopPage
+        currentUser={currentUser}
+        data={data}
+        flashMessage={flashMessage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (route === 'cart') {
+    return (
+      <CartPage
+        currentUser={currentUser}
+        data={data}
+        flashMessage={flashMessage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (route === 'about') {
+    return (
+      <AboutPage
+        currentUser={currentUser}
+        data={data}
+        flashMessage={flashMessage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (route === 'contact') {
+    return (
+      <ContactPage
         currentUser={currentUser}
         data={data}
         flashMessage={flashMessage}

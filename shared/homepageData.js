@@ -154,6 +154,28 @@ const allProducts = [
   },
 ]
 
+const shopThemes = ['sage', 'blush', 'gold', 'mint', 'lavender', 'sky']
+
+const shopProducts = [
+  ...allProducts,
+  ...allProducts.map((product, index) => ({
+    ...product,
+    id: `${product.id}-value-pack`,
+    name: `${product.name} Value Pack`,
+    price: product.price + 140 + index * 20,
+    originalPrice: product.originalPrice + 220 + index * 28,
+    summary: `${product.summary} Extra value pack for regular wellness routines.`,
+    badge: product.badge ?? 'save 18%',
+  })),
+].map((product, index) => ({
+  ...product,
+  reviewCount: 8 + index * 3,
+  createdAt: `2026-07-${String((index % 9) + 1).padStart(2, '0')}`,
+  inStock: true,
+  onSale: Boolean(product.badge),
+  visualTheme: shopThemes[index % shopThemes.length],
+}))
+
 const stories = [
   {
     id: 'rajat',
@@ -192,7 +214,7 @@ export const homepageData = {
     highlight: 'Over 100k happy customers',
   },
   header: {
-    brand: 'ST Herbal Care',
+    brand: 'ST Herbal India',
     categoriesLabel: 'Categories',
     searchPlaceholder: 'What are you looking for ?',
     primaryLinks: ['Home', 'Shop', 'About Us', 'Contact'],
@@ -320,16 +342,16 @@ export const homepageData = {
       eyebrow: 'buy more, save more',
       title: 'Shop Herbal Care',
       description:
-        'Explore every capsule and powder from ST Herbal Care in one linked shop page with real product images.',
-      ctaLabel: 'Browse All',
-      image: '/images/hero-banner.png',
+        'Explore every capsule and powder from ST Herbal India in one linked shop page with real product images.',
+      ctaLabel: 'Shop Now',
+      image: '/images/shop-banner-reference.png',
     },
-    products: allProducts,
+    products: shopProducts,
   },
   roots: {
     title: 'Our Roots',
     description:
-      'ST Herbal Care focuses on close-to-nature herbal formulas with a trust-first shopping experience, clear product benefits and easy navigation from homepage to shop.',
+      'ST Herbal India focuses on close-to-nature herbal formulas with a trust-first shopping experience, clear product benefits and easy navigation from homepage to shop.',
     ctaLabel: 'Know More',
     pillars: [
       {
@@ -410,7 +432,7 @@ export const homepageData = {
       { id: 'rupay', label: 'RuPay', image: '/images/payments/rupay.png' },
       { id: 'paypal', label: 'PayPal', image: '/images/payments/paypal.png' },
     ],
-    copyright: 'Copyright (c) 2025 stherbalcare. All rights reserved',
+    copyright: 'Copyright (c) 2025 stherbalindia. All rights reserved',
   },
 }
 
