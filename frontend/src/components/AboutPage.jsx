@@ -67,6 +67,12 @@ const blogPosts = [
 ]
 
 function AboutPage({ currentUser, data, flashMessage, onLogout }) {
+  const about = data.about ?? {}
+  const promiseCards = Array.isArray(about.promiseCards) ? about.promiseCards : []
+  const valueItems = Array.isArray(about.values) ? about.values : []
+  const blogPosts = Array.isArray(about?.blog?.posts) ? about.blog.posts : []
+  const storyParagraphs = Array.isArray(about?.story?.paragraphs) ? about.story.paragraphs : []
+
   return (
     <SiteChrome
       currentPage="about"
@@ -78,8 +84,8 @@ function AboutPage({ currentUser, data, flashMessage, onLogout }) {
       <section className="about-page">
         <section className="about-hero">
           <div className="about-hero__backdrop surface-card">
-            <span className="about-page__eyebrow">about us</span>
-            <h1>Where Tradition Meets Modern Wellness.</h1>
+            <span className="about-page__eyebrow">{about.eyebrow ?? 'about us'}</span>
+            <h1>{about.heroTitle ?? 'Where Tradition Meets Modern Wellness.'}</h1>
           </div>
 
           <div className="about-hero__cards">
@@ -97,29 +103,26 @@ function AboutPage({ currentUser, data, flashMessage, onLogout }) {
             <div className="about-story__glow" />
             <img
               className="about-story__image"
-              src="/images/shop-banner-reference.png"
-              alt="Fresh herbal ingredients and wellness care"
+              src={about?.story?.image ?? '/images/shop-banner-reference.png'}
+              alt={about?.story?.imageAlt ?? 'Fresh herbal ingredients and wellness care'}
             />
             <img
               aria-hidden="true"
               className="about-story__mark"
-              src="/images/leaf-logo.png"
+              src={about?.story?.markImage ?? '/images/leaf-logo.png'}
               alt=""
             />
           </div>
 
           <div className="about-story__content">
-            <span className="about-page__eyebrow">why us</span>
-            <h2>We are committed to providing wholesome products that fit your lifestyle.</h2>
-            <p>
-              At ST Herbal India, we uphold the principles of Ayurveda by choosing
-              trusted ingredients, thoughtful formulations, and customer-friendly
-              wellness products that support everyday health naturally.
-            </p>
-            <p>
-              Our goal is simple: make herbal care feel premium, approachable, and
-              dependable for every home.
-            </p>
+            <span className="about-page__eyebrow">{about?.story?.eyebrow ?? 'why us'}</span>
+            <h2>
+              {about?.story?.title ??
+                'We are committed to providing wholesome products that fit your lifestyle.'}
+            </h2>
+            {storyParagraphs.map((paragraph, index) => (
+              <p key={`story-${index}`}>{paragraph}</p>
+            ))}
           </div>
         </section>
 
@@ -137,8 +140,10 @@ function AboutPage({ currentUser, data, flashMessage, onLogout }) {
 
         <section className="about-blog">
           <div className="about-blog__header">
-            <span className="about-page__eyebrow">recent post</span>
-            <h2 className="section-title section-title--blue">latest from our blog</h2>
+            <span className="about-page__eyebrow">{about?.blog?.eyebrow ?? 'recent post'}</span>
+            <h2 className="section-title section-title--blue">
+              {about?.blog?.title ?? 'latest from our blog'}
+            </h2>
           </div>
 
           <div className="about-blog__grid">

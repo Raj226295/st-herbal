@@ -18,6 +18,7 @@ const currency = new Intl.NumberFormat('en-IN', {
 })
 
 const wishlistStorageKey = 'st-herbal-wishlist'
+const wishlistUpdatedEventName = 'st-herbal-wishlist-updated'
 const cartStorageKey = 'st-herbal-cart'
 const cartUpdatedEventName = 'st-herbal-cart-updated'
 
@@ -58,6 +59,7 @@ function createCartEntry(product, quantity = 1, autoSaved = false) {
 
 function persistWishlist(nextWishlistIds) {
   window.localStorage.setItem(wishlistStorageKey, JSON.stringify(nextWishlistIds))
+  window.dispatchEvent(new CustomEvent(wishlistUpdatedEventName, { detail: nextWishlistIds }))
 }
 
 function persistCart(nextCartItems) {
@@ -255,6 +257,41 @@ function ShopPage({ currentUser, data, flashMessage, onLogout }) {
     window.localStorage.setItem(cartStorageKey, JSON.stringify(cartItems))
     window.dispatchEvent(new CustomEvent(cartUpdatedEventName, { detail: cartItems }))
   }, [cartItems])
+
+  useEffect(() => {
+    function syncStorageState(nextWishlistIds, nextCartItems) {
+      const resolvedWishlistIds = nextWishlistIds ?? readStoredJson(wishlistStorageKey, [])
+      const resolvedCartItems = nextCartItems ?? readStoredJson(cartStorageKey, [])
+      setWishlistIds(Array.isArray(resolvedWishlistIds) ? resolvedWishlistIds : [])
+      setCartItems(Array.isArray(resolvedCartItems) ? resolvedCartItems : [])
+    }
+
+    function handleStorage(event) {
+      if (event.key && ![wishlistStorageKey, cartStorageKey].includes(event.key)) {
+        return
+      }
+
+      syncStorageState()
+    }
+
+    function handleWishlistUpdated(event) {
+      syncStorageState(Array.isArray(event.detail) ? event.detail : undefined)
+    }
+
+    function handleCartUpdated(event) {
+      syncStorageState(undefined, Array.isArray(event.detail) ? event.detail : undefined)
+    }
+
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener(wishlistUpdatedEventName, handleWishlistUpdated)
+    window.addEventListener(cartUpdatedEventName, handleCartUpdated)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener(wishlistUpdatedEventName, handleWishlistUpdated)
+      window.removeEventListener(cartUpdatedEventName, handleCartUpdated)
+    }
+  }, [])
 
   useEffect(() => {
     if (!quickViewProduct) {

@@ -119,7 +119,7 @@ function LoginPage({
     return nextErrors
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     const nextErrors = validateForm()
 
@@ -128,7 +128,7 @@ function LoginPage({
       return
     }
 
-    const result = onLogin(formData)
+    const result = await onLogin(formData)
 
     if (!result.ok) {
       setFormMessage(result.error)
@@ -194,6 +194,9 @@ function LoginPage({
 
             <p className="auth-switch">
               Don&apos;t have an account? <a href="#/signup">Sign Up</a>
+            </p>
+            <p className="auth-switch auth-switch--admin">
+              Need admin access? <a href="#/admin/login">Admin Login</a>
             </p>
           </div>
 

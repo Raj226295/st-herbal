@@ -14,6 +14,11 @@ import {
 import ProductCard from './ProductCard.jsx'
 import SiteChrome from './SiteChrome.jsx'
 
+const wishlistStorageKey = 'st-herbal-wishlist'
+const wishlistUpdatedEventName = 'st-herbal-wishlist-updated'
+const cartStorageKey = 'st-herbal-cart'
+const cartUpdatedEventName = 'st-herbal-cart-updated'
+
 const pillarIcons = {
   certified: CertifiedIcon,
   leaf: LeafIcon,
@@ -28,7 +33,41 @@ const trustIcons = {
   lock: LockIcon,
 }
 
-function ProductSection({ section }) {
+function readStoredJson(key, fallbackValue) {
+  try {
+    const rawValue = window.localStorage.getItem(key)
+    const parsedValue = JSON.parse(rawValue ?? 'null')
+    return parsedValue ?? fallbackValue
+  } catch {
+    return fallbackValue
+  }
+}
+
+function createCartEntry(product, quantity = 1, autoSaved = false) {
+  return {
+    id: product.id,
+    name: product.name,
+    image: product.image,
+    price: product.price,
+    originalPrice: product.originalPrice,
+    summary: product.summary,
+    category: product.category,
+    quantity,
+    autoSaved,
+  }
+}
+
+function persistWishlist(nextWishlistIds) {
+  window.localStorage.setItem(wishlistStorageKey, JSON.stringify(nextWishlistIds))
+  window.dispatchEvent(new CustomEvent(wishlistUpdatedEventName, { detail: nextWishlistIds }))
+}
+
+function persistCart(nextCartItems) {
+  window.localStorage.setItem(cartStorageKey, JSON.stringify(nextCartItems))
+  window.dispatchEvent(new CustomEvent(cartUpdatedEventName, { detail: nextCartItems }))
+}
+
+function ProductSection({ onAddToCart, onToggleWishlist, section, wishlistIds }) {
   return (
     <section className="product-section">
       <div className="section-header">
@@ -54,7 +93,15 @@ function ProductSection({ section }) {
 
       <div className="product-grid">
         {section.products.map((product) => (
-          <ProductCard key={`${section.id}-${product.id}`} product={product} />
+          <ProductCard
+            compact
+            interactive
+            isWishlisted={wishlistIds.includes(product.id)}
+            key={`${section.id}-${product.id}`}
+            onAddToCart={onAddToCart}
+            onToggleWishlist={onToggleWishlist}
+            product={product}
+          />
         ))}
       </div>
     </section>
@@ -85,6 +132,9 @@ function TrustStrip({ items }) {
 function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
   const categoryGridRef = useRef(null)
   const [activeHeroSlide, setActiveHeroSlide] = useState(0)
+  const [wishlistIds, setWishlistIds] = useState(() => readStoredJson(wishlistStorageKey, []))
+  const [cartItems, setCartItems] = useState(() => readStoredJson(cartStorageKey, []))
+  const [actionMessage, setActionMessage] = useState('')
   const [isMobileCatalogView, setIsMobileCatalogView] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 820px)').matches : false,
   )
@@ -146,6 +196,53 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
   }, [activeHeroSlide, heroSlides.length])
 
   useEffect(() => {
+    function syncStorageState(nextWishlistIds, nextCartItems) {
+      const resolvedWishlistIds = nextWishlistIds ?? readStoredJson(wishlistStorageKey, [])
+      const resolvedCartItems = nextCartItems ?? readStoredJson(cartStorageKey, [])
+      setWishlistIds(Array.isArray(resolvedWishlistIds) ? resolvedWishlistIds : [])
+      setCartItems(Array.isArray(resolvedCartItems) ? resolvedCartItems : [])
+    }
+
+    function handleStorage(event) {
+      if (event.key && ![wishlistStorageKey, cartStorageKey].includes(event.key)) {
+        return
+      }
+
+      syncStorageState()
+    }
+
+    function handleWishlistUpdated(event) {
+      syncStorageState(Array.isArray(event.detail) ? event.detail : undefined)
+    }
+
+    function handleCartUpdated(event) {
+      syncStorageState(undefined, Array.isArray(event.detail) ? event.detail : undefined)
+    }
+
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener(wishlistUpdatedEventName, handleWishlistUpdated)
+    window.addEventListener(cartUpdatedEventName, handleCartUpdated)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener(wishlistUpdatedEventName, handleWishlistUpdated)
+      window.removeEventListener(cartUpdatedEventName, handleCartUpdated)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!actionMessage) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setActionMessage('')
+    }, 2200)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [actionMessage])
+
+  useEffect(() => {
     const grid = categoryGridRef.current
 
     if (!grid || data.categories.length < 2 || isMobileCatalogView) {
@@ -205,6 +302,53 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
       window.clearTimeout(resetTimeoutId)
     }
   }, [data.categories, isMobileCatalogView])
+
+  function handleToggleWishlist(product) {
+    const isStored = wishlistIds.includes(product.id)
+    const nextWishlistIds = isStored
+      ? wishlistIds.filter((productId) => productId !== product.id)
+      : [...wishlistIds, product.id]
+    const nextCartItems = (() => {
+      if (isStored) {
+        return cartItems.filter((item) => !(item.id === product.id && item.autoSaved))
+      }
+
+      const existingCartItem = cartItems.find((item) => item.id === product.id)
+      return existingCartItem
+        ? cartItems
+        : [...cartItems, createCartEntry(product, 1, true)]
+    })()
+
+    setWishlistIds(nextWishlistIds)
+    setCartItems(nextCartItems)
+    persistWishlist(nextWishlistIds)
+    persistCart(nextCartItems)
+    setActionMessage(
+      isStored
+        ? `${product.name} removed from wishlist.`
+        : `${product.name} liked and added to cart.`,
+    )
+  }
+
+  function handleAddToCart(product, quantity) {
+    const nextCartItems = (() => {
+      const existingItem = cartItems.find((item) => item.id === product.id)
+
+      if (existingItem) {
+        return cartItems.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + quantity, autoSaved: false }
+            : item,
+        )
+      }
+
+      return [...cartItems, createCartEntry(product, quantity, false)]
+    })()
+
+    setCartItems(nextCartItems)
+    persistCart(nextCartItems)
+    setActionMessage(`${product.name} added to cart.`)
+  }
 
   return (
     <SiteChrome
@@ -289,8 +433,16 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
           </button>
         </section>
 
+        {actionMessage ? <div className="shop-action-message">{actionMessage}</div> : null}
+
         {data.sections.slice(0, 1).map((section) => (
-          <ProductSection key={section.id} section={section} />
+          <ProductSection
+            key={section.id}
+            onAddToCart={handleAddToCart}
+            onToggleWishlist={handleToggleWishlist}
+            section={section}
+            wishlistIds={wishlistIds}
+          />
         ))}
 
         <section className="roots-section">
@@ -328,7 +480,13 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
         </section>
 
         {data.sections.slice(1).map((section) => (
-          <ProductSection key={section.id} section={section} />
+          <ProductSection
+            key={section.id}
+            onAddToCart={handleAddToCart}
+            onToggleWishlist={handleToggleWishlist}
+            section={section}
+            wishlistIds={wishlistIds}
+          />
         ))}
 
         <section className="stories-section">

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowIcon,
   BagIcon,
   BrandLogo,
   ChevronDownIcon,
@@ -14,6 +15,7 @@ import {
   TruckIcon,
   UserIcon,
 } from './Illustrations.jsx'
+import ProductCard from './ProductCard.jsx'
 
 const shortcutIcons = {
   truck: TruckIcon,
@@ -23,6 +25,8 @@ const shortcutIcons = {
   phone: PhoneIcon,
 }
 
+const wishlistStorageKey = 'st-herbal-wishlist'
+const wishlistUpdatedEventName = 'st-herbal-wishlist-updated'
 const cartStorageKey = 'st-herbal-cart'
 const cartUpdatedEventName = 'st-herbal-cart-updated'
 const currency = new Intl.NumberFormat('en-IN', {
@@ -30,6 +34,14 @@ const currency = new Intl.NumberFormat('en-IN', {
   currency: 'INR',
   maximumFractionDigits: 0,
 })
+
+const hotDealSections = [
+  { id: 'all', label: 'All Offers' },
+  { id: 'coupons', label: 'Coupons' },
+  { id: 'meal', label: 'Meal Deals' },
+  { id: 'bundle', label: 'Bundle Offers' },
+  { id: 'half', label: 'Half Price' },
+]
 
 function getNavHref(label) {
   if (label === 'Home') {
@@ -86,9 +98,76 @@ function getCartCount(items) {
   return items.reduce((total, item) => total + Math.max(1, Number(item.quantity) || 1), 0)
 }
 
+function createCartEntry(product, quantity = 1, autoSaved = false) {
+  return {
+    id: product.id,
+    name: product.name,
+    image: product.image,
+    price: product.price,
+    originalPrice: product.originalPrice,
+    summary: product.summary,
+    category: product.category,
+    quantity,
+    autoSaved,
+  }
+}
+
+function persistWishlistItems(nextItems) {
+  window.localStorage.setItem(wishlistStorageKey, JSON.stringify(nextItems))
+  window.dispatchEvent(new CustomEvent(wishlistUpdatedEventName, { detail: nextItems }))
+}
+
 function persistCartItems(nextItems) {
   window.localStorage.setItem(cartStorageKey, JSON.stringify(nextItems))
   window.dispatchEvent(new CustomEvent(cartUpdatedEventName, { detail: nextItems }))
+}
+
+function resolveCategoryPreviewProducts(category, products, fallbackIndex) {
+  const matchers = {
+    digestive: ['Digestive Care'],
+    'men-health': ["Men's Health", 'Vitality Care'],
+    immunity: ['Immunity Care'],
+    respiratory: ['Respiratory Care', 'Immunity Care'],
+    'skin-care': ['Skin Care'],
+    vitality: ['Vitality Care', "Men's Health"],
+  }
+  const allowedCategories = matchers[category.id] ?? [category.title]
+  const matchedProducts = products.filter((product) => allowedCategories.includes(product.category))
+
+  if (matchedProducts.length >= 4) {
+    return matchedProducts.slice(0, 4)
+  }
+
+  const fallbackProducts = products.filter((product) => !matchedProducts.some((item) => item.id === product.id))
+  return [...matchedProducts, ...fallbackProducts].slice(fallbackIndex % 2, (fallbackIndex % 2) + 4)
+}
+
+function resolveHotDealProducts(sectionId, products) {
+  const saleProducts = products.filter((product) => product.onSale)
+  const fallbackProducts = saleProducts.slice(0, 4)
+  const withFallback = (items) => (items.length > 0 ? items : fallbackProducts)
+
+  switch (sectionId) {
+    case 'coupons':
+      return withFallback(saleProducts.filter((product) => product.price <= 500).slice(0, 4))
+    case 'meal':
+      return withFallback(
+        saleProducts
+        .filter((product) => ['Digestive Care', 'Immunity Care'].includes(product.category))
+        .slice(0, 4)
+      )
+    case 'bundle':
+      return withFallback(products.filter((product) => product.name.includes('Value Pack')).slice(0, 4))
+    case 'half':
+      return withFallback(
+        saleProducts
+        .filter((product) => product.originalPrice >= product.price * 1.8)
+        .slice(0, 4)
+      )
+    case 'all':
+    default:
+      return fallbackProducts
+  }
 }
 
 function SiteChrome({ children, currentPage, currentUser, data, flashMessage, onLogout }) {
@@ -97,6 +176,10 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false)
+  const [activeDesktopMenu, setActiveDesktopMenu] = useState(null)
+  const [activeCategoryId, setActiveCategoryId] = useState(() => data?.categories?.[0]?.id ?? null)
+  const [activeDealSection, setActiveDealSection] = useState(hotDealSections[0].id)
+  const [wishlistIds, setWishlistIds] = useState(() => readStoredJson(wishlistStorageKey, []))
   const [cartCount, setCartCount] = useState(() =>
     getCartCount(readStoredJson(cartStorageKey, [])),
   )
@@ -108,6 +191,20 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
   const productMap = useMemo(
     () => new Map((data?.shop?.products ?? []).map((product) => [product.id, product])),
     [data?.shop?.products],
+  )
+  const categoryPreviewGroups = useMemo(
+    () =>
+      (data?.categories ?? []).map((category, index) => ({
+        ...category,
+        products: resolveCategoryPreviewProducts(category, data?.shop?.products ?? [], index),
+      })),
+    [data?.categories, data?.shop?.products],
+  )
+  const activeCategoryGroup =
+    categoryPreviewGroups.find((category) => category.id === activeCategoryId) ?? categoryPreviewGroups[0]
+  const hotDealPreviewProducts = useMemo(
+    () => resolveHotDealProducts(activeDealSection, data?.shop?.products ?? []),
+    [activeDealSection, data?.shop?.products],
   )
   const resolvedAccountMenuItems = useMemo(
     () =>
@@ -155,7 +252,18 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
     setIsMobileMenuOpen(false)
     setIsMobileSearchOpen(false)
     setIsCartDrawerOpen(false)
+    setActiveDesktopMenu(null)
   }, [currentPage, currentUser])
+
+  useEffect(() => {
+    if (!categoryPreviewGroups.length) {
+      return
+    }
+
+    if (!categoryPreviewGroups.some((category) => category.id === activeCategoryId)) {
+      setActiveCategoryId(categoryPreviewGroups[0].id)
+    }
+  }, [activeCategoryId, categoryPreviewGroups])
 
   useEffect(() => {
     if (!isMobileSearchOpen) {
@@ -185,31 +293,39 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
   }, [isCartDrawerOpen, isMobileAccountOpen, isMobileMenuOpen])
 
   useEffect(() => {
-    function syncCartState(nextItems) {
-      const resolvedItems = nextItems ?? readStoredJson(cartStorageKey, [])
-      setCartItems(resolvedItems)
-      setCartCount(getCartCount(resolvedItems))
+    function syncStorageState(nextCartItems, nextWishlistIds) {
+      const resolvedCartItems = nextCartItems ?? readStoredJson(cartStorageKey, [])
+      const resolvedWishlistIds = nextWishlistIds ?? readStoredJson(wishlistStorageKey, [])
+      setCartItems(resolvedCartItems)
+      setCartCount(getCartCount(resolvedCartItems))
+      setWishlistIds(Array.isArray(resolvedWishlistIds) ? resolvedWishlistIds : [])
     }
 
     function handleStorage(event) {
-      if (event.key && event.key !== cartStorageKey) {
+      if (event.key && ![cartStorageKey, wishlistStorageKey].includes(event.key)) {
         return
       }
 
-      syncCartState()
+      syncStorageState()
     }
 
     function handleCartUpdated(event) {
-      syncCartState(Array.isArray(event.detail) ? event.detail : undefined)
+      syncStorageState(Array.isArray(event.detail) ? event.detail : undefined)
     }
 
-    syncCartState()
+    function handleWishlistUpdated(event) {
+      syncStorageState(undefined, Array.isArray(event.detail) ? event.detail : undefined)
+    }
+
+    syncStorageState()
     window.addEventListener('storage', handleStorage)
     window.addEventListener(cartUpdatedEventName, handleCartUpdated)
+    window.addEventListener(wishlistUpdatedEventName, handleWishlistUpdated)
 
     return () => {
       window.removeEventListener('storage', handleStorage)
       window.removeEventListener(cartUpdatedEventName, handleCartUpdated)
+      window.removeEventListener(wishlistUpdatedEventName, handleWishlistUpdated)
     }
   }, [])
 
@@ -248,6 +364,49 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
     setCartItems(nextItems)
     setCartCount(getCartCount(nextItems))
     persistCartItems(nextItems)
+  }
+
+  function handleCatalogAddToCart(product, quantity = 1) {
+    const nextItems = (() => {
+      const existingItem = cartItems.find((item) => item.id === product.id)
+
+      if (existingItem) {
+        return cartItems.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + quantity, autoSaved: false }
+            : item,
+        )
+      }
+
+      return [...cartItems, createCartEntry(product, quantity, false)]
+    })()
+
+    setCartItems(nextItems)
+    setCartCount(getCartCount(nextItems))
+    persistCartItems(nextItems)
+  }
+
+  function handleCatalogToggleWishlist(product) {
+    const isStored = wishlistIds.includes(product.id)
+    const nextWishlistIds = isStored
+      ? wishlistIds.filter((productId) => productId !== product.id)
+      : [...wishlistIds, product.id]
+    const nextCartItems = (() => {
+      if (isStored) {
+        return cartItems.filter((item) => !(item.id === product.id && item.autoSaved))
+      }
+
+      const existingCartItem = cartItems.find((item) => item.id === product.id)
+      return existingCartItem
+        ? cartItems
+        : [...cartItems, createCartEntry(product, 1, true)]
+    })()
+
+    setWishlistIds(nextWishlistIds)
+    setCartItems(nextCartItems)
+    setCartCount(getCartCount(nextCartItems))
+    persistWishlistItems(nextWishlistIds)
+    persistCartItems(nextCartItems)
   }
 
   return (
@@ -309,10 +468,67 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
           </a>
 
           <div className="search-cluster">
-            <button className="category-chip" type="button">
-              <span>{data.header.categoriesLabel}</span>
-              <MenuIcon />
-            </button>
+            <div
+              className="desktop-hover-menu desktop-hover-menu--categories"
+              onMouseEnter={() => {
+                setActiveDesktopMenu('categories')
+                setActiveCategoryId(categoryPreviewGroups[0]?.id ?? null)
+              }}
+              onMouseLeave={() => setActiveDesktopMenu(null)}
+            >
+              <button
+                className={`category-chip ${activeDesktopMenu === 'categories' ? 'is-open' : ''}`}
+                type="button"
+              >
+                <span>{data.header.categoriesLabel}</span>
+                <MenuIcon />
+              </button>
+
+              {activeDesktopMenu === 'categories' && activeCategoryGroup ? (
+                <div className="desktop-hover-menu__panel desktop-hover-menu__panel--categories surface-card">
+                  <div className="desktop-hover-menu__nav">
+                    {categoryPreviewGroups.map((category) => (
+                      <button
+                        className={`desktop-hover-menu__nav-item ${activeCategoryGroup.id === category.id ? 'is-active' : ''}`}
+                        key={category.id}
+                        onMouseEnter={() => setActiveCategoryId(category.id)}
+                        type="button"
+                      >
+                        <strong>{category.title}</strong>
+                        <span>{category.subtitle}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="desktop-hover-menu__content">
+                    <div className="desktop-hover-menu__header">
+                      <div>
+                        <span className="desktop-hover-menu__eyebrow">shop by category</span>
+                        <h3>{activeCategoryGroup.title}</h3>
+                      </div>
+                      <a className="link-button" href="#/shop">
+                        View shop
+                        <ArrowIcon />
+                      </a>
+                    </div>
+
+                    <div className="desktop-hover-menu__products">
+                      {activeCategoryGroup.products.map((product) => (
+                        <ProductCard
+                          compact
+                          interactive
+                          isWishlisted={wishlistIds.includes(product.id)}
+                          key={`category-preview-${product.id}`}
+                          onAddToCart={handleCatalogAddToCart}
+                          onToggleWishlist={handleCatalogToggleWishlist}
+                          product={product}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
 
             <label className="searchbar">
               <SearchIcon />
@@ -442,6 +658,66 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
           <div className="info-pills">
             {data.header.infoPills.map((pill) => {
               const Icon = shortcutIcons[pill.icon]
+
+              if (pill.id === 'hot-deals') {
+                return (
+                  <div
+                    className="desktop-hover-menu desktop-hover-menu--deals"
+                    key={pill.id}
+                    onMouseEnter={() => setActiveDesktopMenu('deals')}
+                    onMouseLeave={() => setActiveDesktopMenu(null)}
+                  >
+                    <span className={`info-pill ${activeDesktopMenu === 'deals' ? 'is-open' : ''}`}>
+                      <Icon />
+                      {pill.label}
+                    </span>
+
+                    {activeDesktopMenu === 'deals' ? (
+                      <div className="desktop-hover-menu__panel desktop-hover-menu__panel--deals surface-card">
+                        <div className="desktop-hover-menu__nav">
+                          {hotDealSections.map((section) => (
+                            <button
+                              className={`desktop-hover-menu__nav-item ${activeDealSection === section.id ? 'is-active' : ''}`}
+                              key={section.id}
+                              onMouseEnter={() => setActiveDealSection(section.id)}
+                              type="button"
+                            >
+                              <strong>{section.label}</strong>
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="desktop-hover-menu__content">
+                          <div className="desktop-hover-menu__header">
+                            <div>
+                              <span className="desktop-hover-menu__eyebrow">today's specials</span>
+                              <h3>Save more with curated herbal offers</h3>
+                            </div>
+                            <a className="link-button" href="#/shop">
+                              Explore all
+                              <ArrowIcon />
+                            </a>
+                          </div>
+
+                          <div className="desktop-hover-menu__products">
+                            {hotDealPreviewProducts.map((product) => (
+                              <ProductCard
+                                compact
+                                interactive
+                                isWishlisted={wishlistIds.includes(product.id)}
+                                key={`deal-preview-${product.id}`}
+                                onAddToCart={handleCatalogAddToCart}
+                                onToggleWishlist={handleCatalogToggleWishlist}
+                                product={product}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              }
 
               return (
                 <span className="info-pill" key={pill.id}>

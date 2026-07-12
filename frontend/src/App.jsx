@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useState } from 'react'
 import fallbackHomepage from '@shared/homepageData.js'
+import { AdminDashboardPage, AdminLoginPage } from './components/AdminPages.jsx'
 import AboutPage from './components/AboutPage.jsx'
 import { LoginPage, SignupPage } from './components/AuthPages.jsx'
 import CartPage from './components/CartPage.jsx'
@@ -15,6 +16,7 @@ const fallbackPillarMap = new Map(
 )
 const authUsersStorageKey = 'st-herbal-users'
 const authSessionStorageKey = 'st-herbal-session'
+const adminSessionStorageKey = 'st-herbal-admin-session'
 
 function getStoredUsers() {
   try {
@@ -38,6 +40,17 @@ function getStoredSession() {
   }
 }
 
+function getStoredAdminSession() {
+  try {
+    const rawSession = window.localStorage.getItem(adminSessionStorageKey)
+    const parsedSession = JSON.parse(rawSession ?? 'null')
+
+    return parsedSession && typeof parsedSession === 'object' ? parsedSession : null
+  } catch {
+    return null
+  }
+}
+
 function saveStoredUsers(users) {
   window.localStorage.setItem(authUsersStorageKey, JSON.stringify(users))
 }
@@ -46,8 +59,16 @@ function saveStoredSession(user) {
   window.localStorage.setItem(authSessionStorageKey, JSON.stringify(user))
 }
 
+function saveStoredAdminSession(session) {
+  window.localStorage.setItem(adminSessionStorageKey, JSON.stringify(session))
+}
+
 function clearStoredSession() {
   window.localStorage.removeItem(authSessionStorageKey)
+}
+
+function clearStoredAdminSession() {
+  window.localStorage.removeItem(adminSessionStorageKey)
 }
 
 function sanitizeUser(user) {
@@ -70,6 +91,7 @@ function resolveHomepageData(payload) {
   return {
     ...fallbackHomepage,
     ...payload,
+    promoBar: { ...fallbackHomepage.promoBar, ...payload.promoBar },
     hero: { ...fallbackHomepage.hero, ...payload.hero },
     header: { ...fallbackHomepage.header, ...payload.header },
     serviceBanner: { ...fallbackHomepage.serviceBanner, ...payload.serviceBanner },
@@ -103,6 +125,43 @@ function resolveHomepageData(payload) {
       Array.isArray(payload.sections) && payload.sections.length > 0
         ? payload.sections
         : fallbackHomepage.sections,
+    about: {
+      ...fallbackHomepage.about,
+      ...payload.about,
+      promiseCards:
+        Array.isArray(payload?.about?.promiseCards) && payload.about.promiseCards.length > 0
+          ? payload.about.promiseCards
+          : fallbackHomepage.about.promiseCards,
+      story: {
+        ...fallbackHomepage.about.story,
+        ...payload?.about?.story,
+        paragraphs:
+          Array.isArray(payload?.about?.story?.paragraphs) &&
+          payload.about.story.paragraphs.length > 0
+            ? payload.about.story.paragraphs
+            : fallbackHomepage.about.story.paragraphs,
+      },
+      values:
+        Array.isArray(payload?.about?.values) && payload.about.values.length > 0
+          ? payload.about.values
+          : fallbackHomepage.about.values,
+      blog: {
+        ...fallbackHomepage.about.blog,
+        ...payload?.about?.blog,
+        posts:
+          Array.isArray(payload?.about?.blog?.posts) && payload.about.blog.posts.length > 0
+            ? payload.about.blog.posts
+            : fallbackHomepage.about.blog.posts,
+      },
+    },
+    contact: {
+      ...fallbackHomepage.contact,
+      ...payload.contact,
+      infoBlocks:
+        Array.isArray(payload?.contact?.infoBlocks) && payload.contact.infoBlocks.length > 0
+          ? payload.contact.infoBlocks
+          : fallbackHomepage.contact.infoBlocks,
+    },
     trustBadges:
       Array.isArray(payload.trustBadges) && payload.trustBadges.length > 0
         ? payload.trustBadges
@@ -134,6 +193,14 @@ function resolveHomepageData(payload) {
 
 function getCurrentRoute() {
   const hash = window.location.hash.replace(/^#/, '')
+
+  if (hash.startsWith('/admin/login')) {
+    return 'admin-login'
+  }
+
+  if (hash.startsWith('/admin')) {
+    return 'admin'
+  }
 
   if (hash.startsWith('/contact')) {
     return 'contact'
@@ -167,6 +234,7 @@ function App() {
   const [status, setStatus] = useState('loading')
   const [route, setRoute] = useState(() => getCurrentRoute())
   const [currentUser, setCurrentUser] = useState(() => getStoredSession())
+  const [adminSession, setAdminSession] = useState(() => getStoredAdminSession())
   const [flashMessage, setFlashMessage] = useState(null)
 
   useEffect(() => {
@@ -270,7 +338,7 @@ function App() {
     return { ok: true }
   }
 
-  function handleLogin(formData) {
+  async function handleLogin(formData) {
     const users = getStoredUsers()
     const normalizedIdentifier = formData.identifier.trim().toLowerCase()
     const normalizedMobile = formData.identifier.replace(/\D/g, '')
@@ -280,6 +348,33 @@ function App() {
     )
 
     if (!matchedUser || matchedUser.password !== formData.password) {
+      try {
+        const adminResponse = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            identifier: formData.identifier,
+            password: formData.password,
+          }),
+        })
+        const adminPayload = await adminResponse.json()
+
+        if (adminResponse.ok && adminPayload?.session) {
+          saveStoredAdminSession(adminPayload.session)
+          setAdminSession(adminPayload.session)
+          setFlashMessage({ type: 'success', message: 'Admin login successful.' })
+          navigateTo('#/admin')
+          return { ok: true }
+        }
+      } catch {
+        return {
+          ok: false,
+          error: 'Unable to connect to login service. Please make sure backend is running.',
+        }
+      }
+
       return {
         ok: false,
         error: 'Invalid email/mobile number or password.',
@@ -300,6 +395,60 @@ function App() {
     setCurrentUser(null)
     setFlashMessage({ type: 'success', message: 'Logged out successfully.' })
     navigateTo('#/')
+  }
+
+  async function handleAdminLogin(formData) {
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+      const payload = await response.json()
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          error: payload.error || 'Unable to login to the admin panel.',
+        }
+      }
+
+      saveStoredAdminSession(payload.session)
+      setAdminSession(payload.session)
+      setFlashMessage({ type: 'success', message: 'Admin login successful.' })
+      navigateTo('#/admin')
+
+      return { ok: true }
+    } catch {
+      return {
+        ok: false,
+        error: 'Unable to connect to the admin service right now.',
+      }
+    }
+  }
+
+  function handleAdminLogout() {
+    clearStoredAdminSession()
+    setAdminSession(null)
+    setFlashMessage({ type: 'success', message: 'Admin logged out successfully.' })
+    navigateTo('#/')
+  }
+
+  function handleAdminSessionExpired() {
+    clearStoredAdminSession()
+    setAdminSession(null)
+    setFlashMessage({ type: 'error', message: 'Admin session expired. Please login again.' })
+    navigateTo('#/admin/login')
+  }
+
+  function handleAdminContentSaved(nextContent, options = {}) {
+    setData(resolveHomepageData(nextContent))
+
+    if (!options.silent) {
+      setFlashMessage({ type: 'success', message: 'Website content updated successfully.' })
+    }
   }
 
   if (route === 'shop') {
@@ -367,6 +516,24 @@ function App() {
         onLogout={handleLogout}
         onSignup={handleSignup}
       />
+    )
+  }
+
+  if (route === 'admin-login') {
+    return <AdminLoginPage adminSession={adminSession} onAdminLogin={handleAdminLogin} />
+  }
+
+  if (route === 'admin') {
+    return adminSession ? (
+      <AdminDashboardPage
+        adminSession={adminSession}
+        data={data}
+        onAdminLogout={handleAdminLogout}
+        onAdminSessionExpired={handleAdminSessionExpired}
+        onContentSaved={handleAdminContentSaved}
+      />
+    ) : (
+      <AdminLoginPage adminSession={adminSession} onAdminLogin={handleAdminLogin} />
     )
   }
 

@@ -20,10 +20,14 @@ function ProductCard({
   onToggleWishlist,
   product,
   detailed = false,
+  interactive = false,
+  compact = false,
   viewMode = 'grid',
   visualTheme = 'sage',
 }) {
   const [quantity, setQuantity] = useState(1)
+  const shouldShowActions = detailed || interactive
+  const shouldShowQuickView = detailed && typeof onQuickView === 'function'
 
   function increaseQuantity() {
     setQuantity((currentValue) => currentValue + 1)
@@ -35,12 +39,12 @@ function ProductCard({
 
   return (
     <article
-      className={`product-card ${detailed ? 'product-card--detailed product-card--shop product-card--shop-tone-' + visualTheme : ''} ${detailed && viewMode === 'list' ? 'product-card--list' : ''}`}
+      className={`product-card ${detailed ? 'product-card--detailed product-card--shop product-card--shop-tone-' + visualTheme : ''} ${detailed && viewMode === 'list' ? 'product-card--list' : ''} ${interactive && !detailed ? 'product-card--interactive' : ''} ${compact ? 'product-card--compact' : ''}`}
     >
       {product.badge ? <span className="product-card__badge">{product.badge}</span> : null}
 
       <div className="product-card__visual">
-        {detailed ? (
+        {shouldShowActions ? (
           <div className="product-card__quick-actions">
             <button
               aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
@@ -51,15 +55,17 @@ function ProductCard({
             >
               <HeartIcon />
             </button>
-            <button
-              aria-label="Quick view"
-              className="product-card__quick-button"
-              onClick={() => onQuickView?.(product)}
-              title="Quick view"
-              type="button"
-            >
-              <ExpandIcon />
-            </button>
+            {shouldShowQuickView ? (
+              <button
+                aria-label="Quick view"
+                className="product-card__quick-button"
+                onClick={() => onQuickView?.(product)}
+                title="Quick view"
+                type="button"
+              >
+                <ExpandIcon />
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -116,17 +122,19 @@ function ProductCard({
           ))}
         </div>
 
-        {detailed ? (
-          <div className="product-card__hover-panel">
-            <div className="product-card__quantity">
-              <button aria-label="Decrease quantity" onClick={decreaseQuantity} type="button">
-                <MinusIcon />
-              </button>
-              <span>{quantity}</span>
-              <button aria-label="Increase quantity" onClick={increaseQuantity} type="button">
-                <PlusIcon />
-              </button>
-            </div>
+        {shouldShowActions ? (
+          <div className={`product-card__hover-panel ${!detailed ? 'product-card__hover-panel--compact' : ''}`}>
+            {detailed ? (
+              <div className="product-card__quantity">
+                <button aria-label="Decrease quantity" onClick={decreaseQuantity} type="button">
+                  <MinusIcon />
+                </button>
+                <span>{quantity}</span>
+                <button aria-label="Increase quantity" onClick={increaseQuantity} type="button">
+                  <PlusIcon />
+                </button>
+              </div>
+            ) : null}
             <button className="product-card__cta" onClick={() => onAddToCart?.(product, quantity)} type="button">
               Add to cart
             </button>

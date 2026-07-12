@@ -13,6 +13,13 @@ const initialFormState = {
 function ContactPage({ currentUser, data, flashMessage, onLogout }) {
   const [formState, setFormState] = useState(initialFormState)
   const [statusMessage, setStatusMessage] = useState('')
+  const contact = data.contact ?? {}
+  const infoBlocks = Array.isArray(contact.infoBlocks) ? contact.infoBlocks : []
+  const iconMap = {
+    mail: MailIcon,
+    phone: PhoneIcon,
+    pin: PinIcon,
+  }
 
   function updateField(field, value) {
     setFormState((currentValue) => ({ ...currentValue, [field]: value }))
@@ -20,7 +27,7 @@ function ContactPage({ currentUser, data, flashMessage, onLogout }) {
 
   function handleSubmit(event) {
     event.preventDefault()
-    setStatusMessage('Thank you. Your message has been saved successfully.')
+    setStatusMessage(contact.successMessage ?? 'Thank you. Your message has been saved successfully.')
     setFormState(initialFormState)
   }
 
@@ -34,8 +41,8 @@ function ContactPage({ currentUser, data, flashMessage, onLogout }) {
     >
       <section className="contact-page">
         <div className="contact-page__hero">
-          <span className="about-page__eyebrow">contact us</span>
-          <h1>we are at your disposal 7 days a week!</h1>
+          <span className="about-page__eyebrow">{contact.eyebrow ?? 'contact us'}</span>
+          <h1>{contact.heroTitle ?? 'we are at your disposal 7 days a week!'}</h1>
         </div>
 
         <section className="contact-map surface-card">
@@ -43,14 +50,16 @@ function ContactPage({ currentUser, data, flashMessage, onLogout }) {
             className="contact-map__frame"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            src="https://www.google.com/maps?q=Dwarka,New+Delhi&z=12&output=embed"
+            src={contact.mapUrl ?? 'https://www.google.com/maps?q=Dwarka,New+Delhi&z=12&output=embed'}
             title="ST Herbal India location map"
           />
         </section>
 
         <section className="contact-layout">
           <div className="contact-form-block">
-            <h2 className="section-title section-title--blue">leave us a message</h2>
+            <h2 className="section-title section-title--blue">
+              {contact.formTitle ?? 'leave us a message'}
+            </h2>
 
             <form className="contact-form" onSubmit={handleSubmit}>
               <div className="contact-form__row">
@@ -78,7 +87,7 @@ function ContactPage({ currentUser, data, flashMessage, onLogout }) {
 
               <textarea
                 onChange={(event) => updateField('message', event.target.value)}
-                placeholder="Your Review"
+                placeholder={contact.formPlaceholder ?? 'Your Review'}
                 required
                 rows={7}
                 value={formState.message}
@@ -90,51 +99,48 @@ function ContactPage({ currentUser, data, flashMessage, onLogout }) {
                   onChange={(event) => updateField('saveInfo', event.target.checked)}
                   type="checkbox"
                 />
-                <span>Save my name, email, and phone details for the next message.</span>
+                <span>
+                  {contact.formCheckboxLabel ??
+                    'Save my name, email, and phone details for the next message.'}
+                </span>
               </label>
 
               {statusMessage ? <div className="shop-action-message">{statusMessage}</div> : null}
 
               <button className="contact-form__submit" type="submit">
-                submit
+                {contact.formSubmitLabel ?? 'submit'}
               </button>
             </form>
           </div>
 
           <aside className="contact-info-block">
-            <h2 className="section-title section-title--blue">contact</h2>
+            <h2 className="section-title section-title--blue">
+              {contact.infoTitle ?? 'contact'}
+            </h2>
 
             <div className="contact-info-list">
-              <article className="contact-info-item">
-                <span className="contact-info-item__icon">
-                  <PinIcon />
-                </span>
-                <div>
-                  <h3>Store Location</h3>
-                  <p>{data.footer.address}</p>
-                </div>
-              </article>
+              {infoBlocks.map((block) => {
+                const Icon = iconMap[block.icon] ?? MailIcon
+                const value =
+                  block.id === 'location'
+                    ? block.value || data.footer.address
+                    : block.id === 'phone'
+                      ? block.value || data.footer.phone
+                      : block.value
 
-              <article className="contact-info-item">
-                <span className="contact-info-item__icon">
-                  <PhoneIcon />
-                </span>
-                <div>
-                  <h3>Phone</h3>
-                  <p>{data.footer.phone}</p>
-                </div>
-              </article>
-
-              <article className="contact-info-item">
-                <span className="contact-info-item__icon">
-                  <MailIcon />
-                </span>
-                <div>
-                  <h3>Customer Support</h3>
-                  <p>support@stherbalindia.com</p>
-                  <small>For product information, order status, and general support.</small>
-                </div>
-              </article>
+                return (
+                  <article className="contact-info-item" key={block.id}>
+                    <span className="contact-info-item__icon">
+                      <Icon />
+                    </span>
+                    <div>
+                      <h3>{block.title}</h3>
+                      <p>{value}</p>
+                      {block.note ? <small>{block.note}</small> : null}
+                    </div>
+                  </article>
+                )
+              })}
             </div>
           </aside>
         </section>

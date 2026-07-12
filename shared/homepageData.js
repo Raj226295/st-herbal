@@ -207,6 +207,72 @@ const stories = [
   },
 ]
 
+const aboutPromiseCards = [
+  {
+    id: 'vision',
+    title: 'Our Vision',
+    text:
+      'At ST Herbal India, our vision is to guide modern families toward balanced, nature-led wellness through trusted Ayurvedic care.',
+  },
+  {
+    id: 'mission',
+    title: 'Our Mission',
+    text:
+      'Our mission is to blend traditional herbal knowledge with quality sourcing so every product supports daily wellbeing with confidence.',
+  },
+  {
+    id: 'promise',
+    title: 'Our Promise',
+    text:
+      'We promise purity, consistency, and customer-first service in every capsule, powder, and wellness formula we create.',
+  },
+]
+
+const aboutValueItems = [
+  {
+    id: 'natural',
+    number: '01',
+    title: 'Natural is good',
+    text: 'Every formula is designed around clean herbal ingredients and a gentle daily wellness experience.',
+  },
+  {
+    id: 'health',
+    number: '02',
+    title: 'Here for your health',
+    text: 'Our products combine Ayurvedic wisdom with practical routines that fit modern lifestyles.',
+  },
+  {
+    id: 'shortcuts',
+    number: '03',
+    title: 'No shortcuts',
+    text: 'We focus on trusted sourcing, quality checks, and simple transparent care from start to finish.',
+  },
+]
+
+const aboutBlogPosts = [
+  {
+    id: 'product-spotlight',
+    date: 'July 26, 2025',
+    author: 'By Admin',
+    title: 'Best Herbal Product in India for Natural Wellness | 100% Ayurvedic',
+    image: '/images/products/amla-powder.png',
+  },
+  {
+    id: 'stress-care',
+    date: 'July 9, 2026',
+    author: 'By Dr. Mohd Suhail',
+    title: 'Why stress and fatigue rise in daily life and how Ayurveda supports balance naturally.',
+    image: '/images/categories/skin-care.avif',
+  },
+  {
+    id: 'daily-wellness',
+    date: 'July 8, 2026',
+    author: 'By Dr. Mohd Suhail',
+    title: 'How herbal routines can support ear care, skin comfort, and immunity every day.',
+    image: '/images/categories/mens-health.avif',
+  },
+]
+
 export const homepageData = {
   promoBar: {
     note: 'For expert consultation talk to the expert instantly',
@@ -377,6 +443,60 @@ export const homepageData = {
         label: 'Pure, No Heavy Metals',
         icon: 'shield',
         image: '/images/pillars/certified-badge-v2.png',
+      },
+    ],
+  },
+  about: {
+    eyebrow: 'about us',
+    heroTitle: 'Where Tradition Meets Modern Wellness.',
+    promiseCards: aboutPromiseCards,
+    story: {
+      eyebrow: 'why us',
+      title: 'We are committed to providing wholesome products that fit your lifestyle.',
+      paragraphs: [
+        'At ST Herbal India, we uphold the principles of Ayurveda by choosing trusted ingredients, thoughtful formulations, and customer-friendly wellness products that support everyday health naturally.',
+        'Our goal is simple: make herbal care feel premium, approachable, and dependable for every home.',
+      ],
+      image: '/images/shop-banner-reference.png',
+      imageAlt: 'Fresh herbal ingredients and wellness care',
+      markImage: '/images/leaf-logo.png',
+    },
+    values: aboutValueItems,
+    blog: {
+      eyebrow: 'recent post',
+      title: 'latest from our blog',
+      posts: aboutBlogPosts,
+    },
+  },
+  contact: {
+    eyebrow: 'contact us',
+    heroTitle: 'we are at your disposal 7 days a week!',
+    mapUrl: 'https://www.google.com/maps?q=Dwarka,New+Delhi&z=12&output=embed',
+    formTitle: 'leave us a message',
+    formPlaceholder: 'Your Review',
+    formCheckboxLabel: 'Save my name, email, and phone details for the next message.',
+    formSubmitLabel: 'submit',
+    successMessage: 'Thank you. Your message has been saved successfully.',
+    infoTitle: 'contact',
+    infoBlocks: [
+      {
+        id: 'location',
+        icon: 'pin',
+        title: 'Store Location',
+        value: 'Dwarka, New Delhi',
+      },
+      {
+        id: 'phone',
+        icon: 'phone',
+        title: 'Phone',
+        value: '7878463670',
+      },
+      {
+        id: 'support',
+        icon: 'mail',
+        title: 'Customer Support',
+        value: 'support@stherbalindia.com',
+        note: 'For product information, order status, and general support.',
       },
     ],
   },
