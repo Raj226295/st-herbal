@@ -44,23 +44,79 @@ const hotDealSections = [
 ]
 
 function getNavHref(label) {
-  if (label === 'Home') {
+  const normalizedLabel = String(label || '').trim().toLowerCase()
+
+  if (normalizedLabel.includes('home')) {
     return '#/'
   }
 
-  if (label === 'Shop') {
+  if (normalizedLabel.includes('shop')) {
     return '#/shop'
   }
 
-  if (label === 'About Us') {
+  if (normalizedLabel.includes('about')) {
     return '#/about'
   }
 
-  if (label === 'Contact') {
+  if (normalizedLabel.includes('contact')) {
     return '#/contact'
   }
 
-  return '#'
+  return '#/'
+}
+
+function getFooterHref(label) {
+  const normalizedLabel = String(label || '').trim().toLowerCase()
+
+  if (
+    normalizedLabel.includes('contact') ||
+    normalizedLabel.includes('support') ||
+    normalizedLabel.includes('return') ||
+    normalizedLabel.includes('shipping') ||
+    normalizedLabel.includes('privacy') ||
+    normalizedLabel.includes('terms') ||
+    normalizedLabel.includes('cancellation')
+  ) {
+    return '#/contact'
+  }
+
+  if (normalizedLabel.includes('order')) {
+    return '#/cart'
+  }
+
+  if (normalizedLabel.includes('wishlist')) {
+    return '#/wishlist'
+  }
+
+  if (normalizedLabel.includes('account')) {
+    return '#/shop'
+  }
+
+  if (normalizedLabel.includes('about')) {
+    return '#/about'
+  }
+
+  return '#/'
+}
+
+function getAccountMenuItemHref(item) {
+  if (item.href) {
+    return item.href
+  }
+
+  if (item.id === 'profile' || item.id === 'address') {
+    return '#/contact'
+  }
+
+  if (item.id === 'orders' || item.id === 'track') {
+    return '#/cart'
+  }
+
+  if (item.id === 'wishlist') {
+    return '#/wishlist'
+  }
+
+  return '#/'
 }
 
 const accountMenuItems = [
@@ -175,6 +231,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
   const [isMobileAccountOpen, setIsMobileAccountOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
+  const [isWishlistDrawerOpen, setIsWishlistDrawerOpen] = useState(false)
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false)
   const [activeDesktopMenu, setActiveDesktopMenu] = useState(null)
   const [activeCategoryId, setActiveCategoryId] = useState(() => data?.categories?.[0]?.id ?? null)
@@ -187,6 +244,8 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
   const accountMenuRef = useRef(null)
   const mobileSearchInputRef = useRef(null)
   const userLabel = currentUser?.fullName?.split(' ')[0] ?? 'Account'
+  const wishlistCount = wishlistIds.length
+  const wishlistLabel = wishlistCount > 0 ? `Wishlist (${wishlistCount})` : 'Wishlist'
   const cartLabel = cartCount > 0 ? `Cart (${cartCount})` : 'Cart'
   const productMap = useMemo(
     () => new Map((data?.shop?.products ?? []).map((product) => [product.id, product])),
@@ -209,9 +268,13 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
   const resolvedAccountMenuItems = useMemo(
     () =>
       accountMenuItems.map((item) =>
-        item.id === 'cart' ? { ...item, href: '#/cart', label: cartLabel } : item,
+        item.id === 'cart'
+          ? { ...item, href: '#/cart', label: cartLabel }
+          : item.id === 'wishlist'
+            ? { ...item, href: '#/wishlist', label: wishlistLabel }
+            : item,
       ),
-    [cartLabel],
+    [cartLabel, wishlistLabel],
   )
   const resolvedCartItems = useMemo(
     () =>
@@ -229,6 +292,13 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
         })
         .filter((item) => item.name),
     [cartItems, productMap],
+  )
+  const resolvedWishlistItems = useMemo(
+    () =>
+      wishlistIds
+        .map((productId) => productMap.get(productId))
+        .filter(Boolean),
+    [productMap, wishlistIds],
   )
   const cartSubtotal = useMemo(
     () => resolvedCartItems.reduce((total, item) => total + item.price * item.quantity, 0),
@@ -251,6 +321,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
     setIsMobileAccountOpen(false)
     setIsMobileMenuOpen(false)
     setIsMobileSearchOpen(false)
+    setIsWishlistDrawerOpen(false)
     setIsCartDrawerOpen(false)
     setActiveDesktopMenu(null)
   }, [currentPage, currentUser])
@@ -278,7 +349,8 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
   }, [isMobileSearchOpen])
 
   useEffect(() => {
-    const shouldLockScroll = isMobileAccountOpen || isMobileMenuOpen || isCartDrawerOpen
+    const shouldLockScroll =
+      isMobileAccountOpen || isMobileMenuOpen || isWishlistDrawerOpen || isCartDrawerOpen
 
     if (!shouldLockScroll) {
       return undefined
@@ -290,7 +362,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
     return () => {
       document.body.style.overflow = previousOverflow
     }
-  }, [isCartDrawerOpen, isMobileAccountOpen, isMobileMenuOpen])
+  }, [isCartDrawerOpen, isMobileAccountOpen, isMobileMenuOpen, isWishlistDrawerOpen])
 
   useEffect(() => {
     function syncStorageState(nextCartItems, nextWishlistIds) {
@@ -348,15 +420,25 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
       return
     }
 
-    setIsMobileAccountOpen(true)
+    setIsWishlistDrawerOpen(true)
   }
 
   function openCartDrawer() {
     setIsCartDrawerOpen(true)
   }
 
+  function closeWishlistDrawer() {
+    setIsWishlistDrawerOpen(false)
+  }
+
   function closeCartDrawer() {
     setIsCartDrawerOpen(false)
+  }
+
+  function removeWishlistItem(productId) {
+    const nextWishlistIds = wishlistIds.filter((itemId) => itemId !== productId)
+    setWishlistIds(nextWishlistIds)
+    persistWishlistItems(nextWishlistIds)
   }
 
   function removeCartItem(productId) {
@@ -391,22 +473,9 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
     const nextWishlistIds = isStored
       ? wishlistIds.filter((productId) => productId !== product.id)
       : [...wishlistIds, product.id]
-    const nextCartItems = (() => {
-      if (isStored) {
-        return cartItems.filter((item) => !(item.id === product.id && item.autoSaved))
-      }
-
-      const existingCartItem = cartItems.find((item) => item.id === product.id)
-      return existingCartItem
-        ? cartItems
-        : [...cartItems, createCartEntry(product, 1, true)]
-    })()
 
     setWishlistIds(nextWishlistIds)
-    setCartItems(nextCartItems)
-    setCartCount(getCartCount(nextCartItems))
     persistWishlistItems(nextWishlistIds)
-    persistCartItems(nextCartItems)
   }
 
   return (
@@ -575,10 +644,10 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
 
                         <div className="account-menu__list" role="menu">
                           {resolvedAccountMenuItems.map((item) =>
-                            item.href ? (
+                            getAccountMenuItemHref(item) ? (
                               <a
                                 className="account-menu__item"
-                                href={item.href}
+                                href={getAccountMenuItemHref(item)}
                                 key={item.id}
                                 onClick={() => setIsAccountOpen(false)}
                               >
@@ -627,6 +696,22 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
                 )
               }
 
+              if (shortcut.id === 'track-orders') {
+                return (
+                  <button
+                    className="shortcut-button shortcut-button--link"
+                    key={shortcut.id}
+                    onClick={() => {
+                      window.location.hash = currentUser ? '#/cart' : '#/login'
+                    }}
+                    type="button"
+                  >
+                    <Icon />
+                    <span>{shortcut.label}</span>
+                  </button>
+                )
+              }
+
               return (
                 <button className="shortcut-button" key={shortcut.id} type="button">
                   <Icon />
@@ -634,6 +719,16 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
                 </button>
               )
             })}
+
+            <button
+              className="shortcut-button shortcut-button--link shortcut-button--wishlist"
+              onClick={handleWishlistAction}
+              type="button"
+            >
+              <HeartIcon />
+              <span>{wishlistLabel}</span>
+              {wishlistCount > 0 ? <span className="shortcut-button__count">{wishlistCount}</span> : null}
+            </button>
           </div>
         </div>
 
@@ -643,7 +738,11 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
               const href = getNavHref(link)
               const isActive =
                 (currentPage === 'home' && link === 'Home') ||
-                ((currentPage === 'shop' || currentPage === 'cart') && link === 'Shop') ||
+                ((currentPage === 'shop' ||
+                  currentPage === 'cart' ||
+                  currentPage === 'wishlist' ||
+                  currentPage === 'checkout') &&
+                  link === 'Shop') ||
                 (currentPage === 'about' && link === 'About Us') ||
                 (currentPage === 'contact' && link === 'Contact')
 
@@ -658,6 +757,8 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
           <div className="info-pills">
             {data.header.infoPills.map((pill) => {
               const Icon = shortcutIcons[pill.icon]
+              const pillLabel =
+                pill.id === 'support' ? `Call support: ${data.promoBar.phone}` : pill.label
 
               if (pill.id === 'hot-deals') {
                 return (
@@ -669,7 +770,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
                   >
                     <span className={`info-pill ${activeDesktopMenu === 'deals' ? 'is-open' : ''}`}>
                       <Icon />
-                      {pill.label}
+                      {pillLabel}
                     </span>
 
                     {activeDesktopMenu === 'deals' ? (
@@ -722,7 +823,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
               return (
                 <span className="info-pill" key={pill.id}>
                   <Icon />
-                  {pill.label}
+                  {pillLabel}
                 </span>
               )
             })}
@@ -837,6 +938,73 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
         </div>
       ) : null}
 
+      {isWishlistDrawerOpen ? (
+        <div className="cart-overlay" onClick={closeWishlistDrawer}>
+          <aside
+            aria-label="Wishlist items"
+            className="cart-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="cart-drawer__header">
+              <strong>wishlist</strong>
+              <button className="cart-drawer__close" onClick={closeWishlistDrawer} type="button">
+                <span>close</span>
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div className="cart-drawer__body">
+              {resolvedWishlistItems.length > 0 ? (
+                resolvedWishlistItems.map((item) => (
+                  <article className="cart-drawer__item" key={item.id}>
+                    <div className="cart-drawer__media">
+                      {item.image ? <img src={item.image} alt={item.name} /> : null}
+                    </div>
+
+                    <div className="cart-drawer__content">
+                      <button
+                        aria-label={`Remove ${item.name} from wishlist`}
+                        className="cart-drawer__remove"
+                        onClick={() => removeWishlistItem(item.id)}
+                        type="button"
+                      >
+                        <CloseIcon />
+                      </button>
+                      <h3>{item.name}</h3>
+                      <div className="cart-drawer__meta">
+                        <span>{item.category}</span>
+                        <strong>{currency.format(item.price ?? 0)}</strong>
+                      </div>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="cart-drawer__empty">
+                  <h3>Your wishlist is empty</h3>
+                  <p>Heart icon se like kiye hue products sirf yahan save honge.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="cart-drawer__footer">
+              <div className="cart-drawer__subtotal">
+                <span>Saved items:</span>
+                <strong>{wishlistCount}</strong>
+              </div>
+              <a className="cart-drawer__button cart-drawer__button--outline" href="#/wishlist" onClick={closeWishlistDrawer}>
+                View wishlist
+              </a>
+              <a className="cart-drawer__button cart-drawer__button--outline" href="#/shop" onClick={closeWishlistDrawer}>
+                Continue shopping
+              </a>
+              <a className="cart-drawer__button" href="#/cart" onClick={closeWishlistDrawer}>
+                Open cart
+              </a>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
       {isCartDrawerOpen ? (
         <div className="cart-overlay" onClick={closeCartDrawer}>
           <aside
@@ -880,7 +1048,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
               ) : (
                 <div className="cart-drawer__empty">
                   <h3>Your cart is empty</h3>
-                  <p>Like ya add to cart karte hi product yahan show ho jayega.</p>
+                  <p>Sirf Add to cart kiye hue products yahan show honge.</p>
                 </div>
               )}
             </div>
@@ -920,7 +1088,14 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
           </div>
           <div className="newsletter__form">
             <input type="email" placeholder={data.footer.newsletterPlaceholder} readOnly />
-            <button type="button">{data.footer.newsletterCta}</button>
+            <button
+              onClick={() => {
+                window.location.hash = '#/contact'
+              }}
+              type="button"
+            >
+              {data.footer.newsletterCta}
+            </button>
           </div>
         </section>
 
@@ -934,7 +1109,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
           <div className="footer-column">
             <h3>customer</h3>
             {data.footer.customerLinks.map((link) => (
-              <a href="#/" key={link}>
+              <a href={getFooterHref(link)} key={link}>
                 {link}
               </a>
             ))}
@@ -943,7 +1118,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
           <div className="footer-column">
             <h3>quick links</h3>
             {data.footer.quickLinks.map((link) => (
-              <a href="#/" key={link}>
+              <a href={getFooterHref(link)} key={link}>
                 {link}
               </a>
             ))}
@@ -998,7 +1173,14 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
 
       <nav className="mobile-bottom-nav" aria-label="Mobile quick navigation">
         <a
-          className={`mobile-bottom-nav__item ${currentPage === 'shop' || currentPage === 'cart' ? 'is-active' : ''}`}
+          className={`mobile-bottom-nav__item ${
+            currentPage === 'shop' ||
+            currentPage === 'cart' ||
+            currentPage === 'wishlist' ||
+            currentPage === 'checkout'
+              ? 'is-active'
+              : ''
+          }`}
           href="#/shop"
         >
           <HomeIcon />
@@ -1026,6 +1208,7 @@ function SiteChrome({ children, currentPage, currentUser, data, flashMessage, on
         <button className="mobile-bottom-nav__item" onClick={handleWishlistAction} type="button">
           <HeartIcon />
           <span>Wishlist</span>
+          {wishlistCount > 0 ? <span className="mobile-bottom-nav__count">{wishlistCount}</span> : null}
         </button>
       </nav>
     </div>

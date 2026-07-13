@@ -4,9 +4,11 @@ import { AdminDashboardPage, AdminLoginPage } from './components/AdminPages.jsx'
 import AboutPage from './components/AboutPage.jsx'
 import { LoginPage, SignupPage } from './components/AuthPages.jsx'
 import CartPage from './components/CartPage.jsx'
+import CheckoutPage from './components/CheckoutPage.jsx'
 import ContactPage from './components/ContactPage.jsx'
 import HomePage from './components/HomePage.jsx'
 import ShopPage from './components/ShopPage.jsx'
+import WishlistPage from './components/WishlistPage.jsx'
 
 const fallbackCategoryMap = new Map(
   fallbackHomepage.categories.map((category) => [category.id, category]),
@@ -17,6 +19,10 @@ const fallbackPillarMap = new Map(
 const authUsersStorageKey = 'st-herbal-users'
 const authSessionStorageKey = 'st-herbal-session'
 const adminSessionStorageKey = 'st-herbal-admin-session'
+const siteContentStorageKey = 'st-herbal-site-content'
+const siteContentUpdatedEventName = 'st-herbal-site-content-updated'
+const authUsersUpdatedEventName = 'st-herbal-users-updated'
+const adminDashboardHash = '#/admin/dashboard'
 
 function getStoredUsers() {
   try {
@@ -51,8 +57,20 @@ function getStoredAdminSession() {
   }
 }
 
+function getStoredSiteContentPayload() {
+  try {
+    const rawContent = window.localStorage.getItem(siteContentStorageKey)
+    const parsedContent = JSON.parse(rawContent ?? 'null')
+
+    return parsedContent && typeof parsedContent === 'object' ? parsedContent : null
+  } catch {
+    return null
+  }
+}
+
 function saveStoredUsers(users) {
   window.localStorage.setItem(authUsersStorageKey, JSON.stringify(users))
+  window.dispatchEvent(new CustomEvent(authUsersUpdatedEventName, { detail: users }))
 }
 
 function saveStoredSession(user) {
@@ -61,6 +79,14 @@ function saveStoredSession(user) {
 
 function saveStoredAdminSession(session) {
   window.localStorage.setItem(adminSessionStorageKey, JSON.stringify(session))
+}
+
+function saveStoredSiteContent(content, { broadcast = true } = {}) {
+  window.localStorage.setItem(siteContentStorageKey, JSON.stringify(content))
+
+  if (broadcast) {
+    window.dispatchEvent(new CustomEvent(siteContentUpdatedEventName, { detail: content }))
+  }
 }
 
 function clearStoredSession() {
@@ -206,12 +232,20 @@ function getCurrentRoute() {
     return 'contact'
   }
 
+  if (hash.startsWith('/checkout')) {
+    return 'checkout'
+  }
+
   if (hash.startsWith('/about')) {
     return 'about'
   }
 
   if (hash.startsWith('/cart')) {
     return 'cart'
+  }
+
+  if (hash.startsWith('/wishlist')) {
+    return 'wishlist'
   }
 
   if (hash.startsWith('/shop')) {
@@ -230,7 +264,13 @@ function getCurrentRoute() {
 }
 
 function App() {
-  const [data, setData] = useState(fallbackHomepage)
+  const [data, setData] = useState(() => {
+    if (typeof window === 'undefined') {
+      return fallbackHomepage
+    }
+
+    return resolveHomepageData(getStoredSiteContentPayload())
+  })
   const [status, setStatus] = useState('loading')
   const [route, setRoute] = useState(() => getCurrentRoute())
   const [currentUser, setCurrentUser] = useState(() => getStoredSession())
@@ -269,6 +309,7 @@ function App() {
           setData(resolvedData)
           setStatus(hasShopCatalog ? 'connected' : 'fallback')
         })
+        saveStoredSiteContent(payload, { broadcast: false })
       } catch (error) {
         if (error.name === 'AbortError') {
           return
@@ -281,6 +322,39 @@ function App() {
     loadHomepage()
 
     return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    function applySharedContent(content) {
+      const resolvedData = resolveHomepageData(content)
+      const hasShopCatalog =
+        Array.isArray(content?.shop?.products) && content.shop.products.length > 0
+
+      startTransition(() => {
+        setData(resolvedData)
+        setStatus(hasShopCatalog ? 'connected' : 'fallback')
+      })
+    }
+
+    function handleStorage(event) {
+      if (event.key && event.key !== siteContentStorageKey) {
+        return
+      }
+
+      applySharedContent(getStoredSiteContentPayload())
+    }
+
+    function handleContentUpdated(event) {
+      applySharedContent(event.detail)
+    }
+
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener(siteContentUpdatedEventName, handleContentUpdated)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener(siteContentUpdatedEventName, handleContentUpdated)
+    }
   }, [])
 
   useEffect(() => {
@@ -325,6 +399,8 @@ function App() {
       fullName: formData.fullName.trim(),
       email: normalizedEmail,
       mobile: normalizedMobile,
+      createdAt: new Date().toISOString(),
+      status: 'Active',
       password: formData.password,
     }
     const sessionUser = sanitizeUser(newUser)
@@ -365,7 +441,7 @@ function App() {
           saveStoredAdminSession(adminPayload.session)
           setAdminSession(adminPayload.session)
           setFlashMessage({ type: 'success', message: 'Admin login successful.' })
-          navigateTo('#/admin')
+          navigateTo(adminDashboardHash)
           return { ok: true }
         }
       } catch {
@@ -378,6 +454,13 @@ function App() {
       return {
         ok: false,
         error: 'Invalid email/mobile number or password.',
+      }
+    }
+
+    if (String(matchedUser.status || 'Active').toLowerCase() === 'blocked') {
+      return {
+        ok: false,
+        error: 'Your account has been blocked by the admin. Please contact support.',
       }
     }
 
@@ -418,7 +501,7 @@ function App() {
       saveStoredAdminSession(payload.session)
       setAdminSession(payload.session)
       setFlashMessage({ type: 'success', message: 'Admin login successful.' })
-      navigateTo('#/admin')
+      navigateTo(adminDashboardHash)
 
       return { ok: true }
     } catch {
@@ -443,8 +526,15 @@ function App() {
     navigateTo('#/admin/login')
   }
 
+  function handleAdminSessionUpdated(nextSession) {
+    saveStoredAdminSession(nextSession)
+    setAdminSession(nextSession)
+  }
+
   function handleAdminContentSaved(nextContent, options = {}) {
     setData(resolveHomepageData(nextContent))
+    setStatus('connected')
+    saveStoredSiteContent(nextContent)
 
     if (!options.silent) {
       setFlashMessage({ type: 'success', message: 'Website content updated successfully.' })
@@ -465,6 +555,28 @@ function App() {
   if (route === 'cart') {
     return (
       <CartPage
+        currentUser={currentUser}
+        data={data}
+        flashMessage={flashMessage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (route === 'wishlist') {
+    return (
+      <WishlistPage
+        currentUser={currentUser}
+        data={data}
+        flashMessage={flashMessage}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  if (route === 'checkout') {
+    return (
+      <CheckoutPage
         currentUser={currentUser}
         data={data}
         flashMessage={flashMessage}
@@ -530,6 +642,7 @@ function App() {
         data={data}
         onAdminLogout={handleAdminLogout}
         onAdminSessionExpired={handleAdminSessionExpired}
+        onAdminSessionUpdated={handleAdminSessionUpdated}
         onContentSaved={handleAdminContentSaved}
       />
     ) : (

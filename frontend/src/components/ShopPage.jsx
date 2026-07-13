@@ -415,26 +415,14 @@ function ShopPage({ currentUser, data, flashMessage, onLogout }) {
     const nextWishlistIds = isStored
       ? wishlistIds.filter((productId) => productId !== product.id)
       : [...wishlistIds, product.id]
-    const nextCartItems = (() => {
-      if (isStored) {
-        return cartItems.filter((item) => !(item.id === product.id && item.autoSaved))
-      }
-
-      const existingCartItem = cartItems.find((item) => item.id === product.id)
-      return existingCartItem
-        ? cartItems
-        : [...cartItems, createCartEntry(product, 1, true)]
-    })()
 
     setWishlistIds(nextWishlistIds)
-    setCartItems(nextCartItems)
     persistWishlist(nextWishlistIds)
-    persistCart(nextCartItems)
 
     setActionMessage(
       isStored
         ? `${product.name} removed from wishlist.`
-        : `${product.name} liked and added to cart.`,
+        : `${product.name} saved to wishlist.`,
     )
   }
 

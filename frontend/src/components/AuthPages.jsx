@@ -195,9 +195,6 @@ function LoginPage({
             <p className="auth-switch">
               Don&apos;t have an account? <a href="#/signup">Sign Up</a>
             </p>
-            <p className="auth-switch auth-switch--admin">
-              Need admin access? <a href="#/admin/login">Admin Login</a>
-            </p>
           </div>
 
           <AuthHero />

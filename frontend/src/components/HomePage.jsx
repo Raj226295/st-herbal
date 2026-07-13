@@ -135,6 +135,9 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
   const [wishlistIds, setWishlistIds] = useState(() => readStoredJson(wishlistStorageKey, []))
   const [cartItems, setCartItems] = useState(() => readStoredJson(cartStorageKey, []))
   const [actionMessage, setActionMessage] = useState('')
+  const visibleTestimonials = (data.testimonials.entries ?? []).filter(
+    (story) => !story?.status || story.status === 'Approved',
+  )
   const [isMobileCatalogView, setIsMobileCatalogView] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 820px)').matches : false,
   )
@@ -308,25 +311,13 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
     const nextWishlistIds = isStored
       ? wishlistIds.filter((productId) => productId !== product.id)
       : [...wishlistIds, product.id]
-    const nextCartItems = (() => {
-      if (isStored) {
-        return cartItems.filter((item) => !(item.id === product.id && item.autoSaved))
-      }
-
-      const existingCartItem = cartItems.find((item) => item.id === product.id)
-      return existingCartItem
-        ? cartItems
-        : [...cartItems, createCartEntry(product, 1, true)]
-    })()
 
     setWishlistIds(nextWishlistIds)
-    setCartItems(nextCartItems)
     persistWishlist(nextWishlistIds)
-    persistCart(nextCartItems)
     setActionMessage(
       isStored
         ? `${product.name} removed from wishlist.`
-        : `${product.name} liked and added to cart.`,
+        : `${product.name} saved to wishlist.`,
     )
   }
 
@@ -372,6 +363,23 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
                     className="hero-card__banner-image"
                     alt={slide.alt ?? `${slide.title} ${slide.subtitle}`}
                   />
+                  <div className="hero-card__slide-overlay" />
+                  <div className="hero-card__slide-copy">
+                    <span className="hero-card__eyebrow">{data.header?.brand ?? 'ST Herbal India'}</span>
+                    <strong className="hero-card__slide-title">
+                      {slide.title ?? data.hero?.title ?? 'Herbal Wellness'}
+                    </strong>
+                    <p>{slide.subtitle ?? data.hero?.subtitle ?? 'Pure herbal care for daily wellness.'}</p>
+                    <button
+                      className="hero-button"
+                      onClick={() => {
+                        window.location.hash = '#/shop'
+                      }}
+                      type="button"
+                    >
+                      {data.shop?.banner?.ctaLabel ?? 'Shop Now'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -428,7 +436,13 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
           <div className="service-banner__seal">
             <div className="service-banner__seal-ring">{data.serviceBanner.seal}</div>
           </div>
-          <button className="service-banner__button" type="button">
+          <button
+            className="service-banner__button"
+            onClick={() => {
+              window.location.hash = '#/shop'
+            }}
+            type="button"
+          >
             {data.serviceBanner.ctaLabel}
           </button>
         </section>
@@ -474,7 +488,13 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
             })}
           </div>
 
-          <button className="roots-button" type="button">
+          <button
+            className="roots-button"
+            onClick={() => {
+              window.location.hash = '#/about'
+            }}
+            type="button"
+          >
             {data.roots.ctaLabel}
           </button>
         </section>
@@ -495,7 +515,7 @@ function HomePage({ currentUser, data, flashMessage, onLogout, status }) {
           </div>
 
           <div className="stories-grid">
-            {data.testimonials.entries.map((story) => (
+            {visibleTestimonials.map((story) => (
               <article className="story-card" key={story.id}>
                 <div className="rating">{'\u2605'.repeat(story.stars)}</div>
                 <p>{story.quote}</p>

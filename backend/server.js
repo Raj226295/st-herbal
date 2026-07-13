@@ -6,14 +6,18 @@ import { fileURLToPath } from 'node:url'
 import { homepageData } from '../shared/homepageData.js'
 
 const PORT = Number(process.env.PORT) || 4000
-const ADMIN_IDENTIFIER = process.env.ADMIN_IDENTIFIER || 'admin@stherbal.com'
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
+const DEFAULT_ADMIN_IDENTIFIER = process.env.ADMIN_IDENTIFIER || 'admin@stherbal.com'
+const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
+const DEFAULT_ADMIN_DISPLAY_NAME = process.env.ADMIN_DISPLAY_NAME || 'ST Herbal Admin'
 const CONTENT_FILE = new URL('./data/site-content.json', import.meta.url)
 const CONTENT_FILE_PATH = fileURLToPath(CONTENT_FILE)
+const ADMIN_CONFIG_FILE = new URL('./data/admin-config.json', import.meta.url)
+const ADMIN_CONFIG_FILE_PATH = fileURLToPath(ADMIN_CONFIG_FILE)
 const sessions = new Map()
 let siteContent = cloneData(homepageData)
+let adminConfig = normalizeAdminConfig()
 
-const contentReadyPromise = initializeContent()
+const initializationReadyPromise = initializeData()
 
 function cloneData(value) {
   return JSON.parse(JSON.stringify(value))
@@ -21,6 +25,15 @@ function cloneData(value) {
 
 function normalizeArray(value, fallbackValue) {
   return Array.isArray(value) && value.length > 0 ? value : fallbackValue
+}
+
+function normalizeAdminConfig(payload = {}) {
+  return {
+    identifier: String(payload.identifier || DEFAULT_ADMIN_IDENTIFIER).trim() || DEFAULT_ADMIN_IDENTIFIER,
+    password: String(payload.password || DEFAULT_ADMIN_PASSWORD),
+    displayName:
+      String(payload.displayName || DEFAULT_ADMIN_DISPLAY_NAME).trim() || DEFAULT_ADMIN_DISPLAY_NAME,
+  }
 }
 
 function normalizeSiteContent(payload) {
@@ -99,6 +112,10 @@ function normalizeSiteContent(payload) {
   }
 }
 
+async function initializeData() {
+  await Promise.all([initializeContent(), initializeAdminConfig()])
+}
+
 async function initializeContent() {
   try {
     const fileContent = await readFile(CONTENT_FILE, 'utf8')
@@ -109,9 +126,34 @@ async function initializeContent() {
   }
 }
 
+async function initializeAdminConfig() {
+  try {
+    const fileContent = await readFile(ADMIN_CONFIG_FILE, 'utf8')
+    adminConfig = normalizeAdminConfig(JSON.parse(fileContent))
+  } catch {
+    adminConfig = normalizeAdminConfig()
+    await persistAdminConfig(adminConfig)
+  }
+}
+
 async function persistContent(nextContent) {
   await mkdir(dirname(CONTENT_FILE_PATH), { recursive: true })
   await writeFile(CONTENT_FILE, JSON.stringify(nextContent, null, 2), 'utf8')
+}
+
+async function persistAdminConfig(nextConfig) {
+  await mkdir(dirname(ADMIN_CONFIG_FILE_PATH), { recursive: true })
+  await writeFile(ADMIN_CONFIG_FILE, JSON.stringify(nextConfig, null, 2), 'utf8')
+}
+
+function syncSessionsWithAdminConfig() {
+  for (const [token, session] of sessions.entries()) {
+    sessions.set(token, {
+      ...session,
+      identifier: adminConfig.identifier,
+      displayName: adminConfig.displayName,
+    })
+  }
 }
 
 function sendJson(response, statusCode, payload) {
@@ -174,7 +216,7 @@ const server = createServer(async (request, response) => {
   }
 
   try {
-    await contentReadyPromise
+    await initializationReadyPromise
 
     if (method === 'GET' && url === '/api/health') {
       sendJson(response, 200, { ok: true, service: 'st-herbal-backend' })
@@ -192,7 +234,7 @@ const server = createServer(async (request, response) => {
           '/api/admin/login',
           '/api/admin/content',
         ],
-        adminLogin: ADMIN_IDENTIFIER,
+        adminLogin: adminConfig.identifier,
         note: 'Open the frontend URL in your browser to see the full page.',
       })
       return
@@ -208,7 +250,7 @@ const server = createServer(async (request, response) => {
       const identifier = String(body.identifier || '').trim().toLowerCase()
       const password = String(body.password || '')
 
-      if (identifier !== ADMIN_IDENTIFIER.toLowerCase() || password !== ADMIN_PASSWORD) {
+      if (identifier !== adminConfig.identifier.toLowerCase() || password !== adminConfig.password) {
         sendJson(response, 401, { error: 'Invalid admin email or password.' })
         return
       }
@@ -216,8 +258,8 @@ const server = createServer(async (request, response) => {
       const token = randomUUID()
       const session = {
         token,
-        identifier: ADMIN_IDENTIFIER,
-        displayName: 'ST Herbal Admin',
+        identifier: adminConfig.identifier,
+        displayName: adminConfig.displayName,
         createdAt: Date.now(),
       }
 
@@ -237,9 +279,82 @@ const server = createServer(async (request, response) => {
         ok: true,
         content: siteContent,
         admin: {
-          displayName: session.displayName,
-          identifier: session.identifier,
+          displayName: adminConfig.displayName,
+          identifier: adminConfig.identifier,
         },
+      })
+      return
+    }
+
+    if (method === 'PUT' && url === '/api/admin/profile') {
+      const session = requireAdmin(request, response)
+
+      if (!session) {
+        return
+      }
+
+      const body = await readJsonBody(request)
+      const nextIdentifier = String(body.identifier || '').trim().toLowerCase()
+      const nextDisplayName = String(body.displayName || '').trim()
+
+      if (!nextIdentifier || !nextDisplayName) {
+        sendJson(response, 400, { error: 'Display name and admin email are required.' })
+        return
+      }
+
+      adminConfig = normalizeAdminConfig({
+        ...adminConfig,
+        identifier: nextIdentifier,
+        displayName: nextDisplayName,
+      })
+      await persistAdminConfig(adminConfig)
+      syncSessionsWithAdminConfig()
+
+      sendJson(response, 200, {
+        ok: true,
+        message: 'Admin profile updated successfully.',
+        session: {
+          ...sessions.get(session.token),
+        },
+      })
+      return
+    }
+
+    if (method === 'PUT' && url === '/api/admin/password') {
+      const session = requireAdmin(request, response)
+
+      if (!session) {
+        return
+      }
+
+      const body = await readJsonBody(request)
+      const currentPassword = String(body.currentPassword || '')
+      const nextPassword = String(body.nextPassword || '')
+
+      if (!currentPassword || !nextPassword) {
+        sendJson(response, 400, { error: 'Current and new password are required.' })
+        return
+      }
+
+      if (currentPassword !== adminConfig.password) {
+        sendJson(response, 400, { error: 'Current password is incorrect.' })
+        return
+      }
+
+      if (nextPassword.length < 6) {
+        sendJson(response, 400, { error: 'New password must be at least 6 characters long.' })
+        return
+      }
+
+      adminConfig = normalizeAdminConfig({
+        ...adminConfig,
+        password: nextPassword,
+      })
+      await persistAdminConfig(adminConfig)
+
+      sendJson(response, 200, {
+        ok: true,
+        message: 'Admin password updated successfully.',
       })
       return
     }
@@ -281,5 +396,5 @@ const server = createServer(async (request, response) => {
 
 server.listen(PORT, () => {
   console.log(`ST Herbal backend running on http://localhost:${PORT}`)
-  console.log(`Admin login: ${ADMIN_IDENTIFIER}`)
+  console.log(`Admin login: ${adminConfig.identifier}`)
 })

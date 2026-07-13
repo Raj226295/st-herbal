@@ -35,6 +35,15 @@ export function SearchIcon() {
   )
 }
 
+export function BellIcon() {
+  return (
+    <Svg>
+      <path d="M7 10C7 7.2 9.1 5 12 5C14.9 5 17 7.2 17 10V13.2L18.5 16H5.5L7 13.2Z" {...iconProps} />
+      <path d="M10 18C10.4 19.1 11.1 19.6 12 19.6C12.9 19.6 13.6 19.1 14 18" {...iconProps} />
+    </Svg>
+  )
+}
+
 export function MailIcon() {
   return (
     <Svg>
@@ -79,6 +88,17 @@ export function UserIcon() {
     <Svg>
       <circle cx="12" cy="8" r="3.5" {...iconProps} />
       <path d="M5 19C6.8 15.7 9 14.5 12 14.5C15 14.5 17.2 15.7 19 19" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function UserPlusIcon() {
+  return (
+    <Svg>
+      <circle cx="9" cy="8" r="3.2" {...iconProps} />
+      <path d="M4.5 18C5.8 15.4 7.5 14.2 9.6 14.2C11.4 14.2 12.9 15 14.2 16.6" {...iconProps} />
+      <path d="M17 7V13" {...iconProps} />
+      <path d="M14 10H20" {...iconProps} />
     </Svg>
   )
 }
@@ -149,6 +169,25 @@ export function GridIcon() {
       <rect x="13.5" y="4.5" width="6" height="6" rx="1.2" {...iconProps} />
       <rect x="4.5" y="13.5" width="6" height="6" rx="1.2" {...iconProps} />
       <rect x="13.5" y="13.5" width="6" height="6" rx="1.2" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function PackageIcon() {
+  return (
+    <Svg>
+      <path d="M12 3.8L19 7.5V16.5L12 20.2L5 16.5V7.5Z" {...iconProps} />
+      <path d="M12 3.8V11.5" {...iconProps} />
+      <path d="M5 7.5L12 11.5L19 7.5" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function TicketIcon() {
+  return (
+    <Svg>
+      <path d="M5 8.2C6.2 8.2 7.2 7.2 7.2 6H16.8C16.8 7.2 17.8 8.2 19 8.2V10.3C17.8 10.3 16.8 11.3 16.8 12.5C16.8 13.7 17.8 14.7 19 14.7V16.8C17.8 16.8 16.8 17.8 16.8 19H7.2C7.2 17.8 6.2 16.8 5 16.8V14.7C6.2 14.7 7.2 13.7 7.2 12.5C7.2 11.3 6.2 10.3 5 10.3Z" {...iconProps} />
+      <path d="M12 7.5V16.5" {...iconProps} />
     </Svg>
   )
 }
@@ -337,6 +376,41 @@ export function WalletIcon() {
   )
 }
 
+export function ReviewIcon() {
+  return (
+    <Svg>
+      <path d="M6.2 6.5H17.8C18.7 6.5 19.5 7.3 19.5 8.2V14.3C19.5 15.2 18.7 16 17.8 16H11.5L8.2 18.8V16H6.2C5.3 16 4.5 15.2 4.5 14.3V8.2C4.5 7.3 5.3 6.5 6.2 6.5Z" {...iconProps} />
+      <path d="M12 8.9L12.9 10.7L14.9 11L13.4 12.4L13.8 14.4L12 13.4L10.2 14.4L10.6 12.4L9.1 11L11.1 10.7Z" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function SettingsIcon() {
+  return (
+    <Svg>
+      <circle cx="12" cy="12" r="2.7" {...iconProps} />
+      <path d="M12 4.5V6.1" {...iconProps} />
+      <path d="M12 17.9V19.5" {...iconProps} />
+      <path d="M19.5 12H17.9" {...iconProps} />
+      <path d="M6.1 12H4.5" {...iconProps} />
+      <path d="M17.3 6.7L16.1 7.9" {...iconProps} />
+      <path d="M7.9 16.1L6.7 17.3" {...iconProps} />
+      <path d="M17.3 17.3L16.1 16.1" {...iconProps} />
+      <path d="M7.9 7.9L6.7 6.7" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function LogoutIcon() {
+  return (
+    <Svg>
+      <path d="M10 5H6.8C5.8 5 5 5.8 5 6.8V17.2C5 18.2 5.8 19 6.8 19H10" {...iconProps} />
+      <path d="M13.5 8L18.5 12L13.5 16" {...iconProps} />
+      <path d="M18 12H9" {...iconProps} />
+    </Svg>
+  )
+}
+
 export function RefreshIcon() {
   return (
     <Svg>
@@ -344,6 +418,28 @@ export function RefreshIcon() {
       <path d="M6 11L6.2 6.8L9.8 8.8" {...iconProps} />
       <path d="M6 14C6.9 16.9 9.2 19 12 19C15.3 19 18 16.3 18 13" {...iconProps} />
       <path d="M18 13L17.8 17.2L14.2 15.2" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function RepeatCustomersIcon() {
+  return (
+    <Svg>
+      <path d="M16.8 8.5C15.8 6.6 13.8 5.3 11.5 5.3C8.4 5.3 5.8 7.8 5.8 10.9" {...iconProps} />
+      <path d="M5.8 10.9L6 7L9.4 8.7" {...iconProps} />
+      <path d="M7.2 15.5C8.2 17.4 10.2 18.7 12.5 18.7C15.6 18.7 18.2 16.2 18.2 13.1" {...iconProps} />
+      <path d="M18.2 13.1L18 17L14.6 15.3" {...iconProps} />
+    </Svg>
+  )
+}
+
+export function BlockedCustomerIcon() {
+  return (
+    <Svg>
+      <circle cx="8.8" cy="8" r="3.1" {...iconProps} />
+      <path d="M4.5 18C5.7 15.5 7.3 14.4 9.1 14.4C10.6 14.4 11.9 15 13 16.2" {...iconProps} />
+      <circle cx="16.7" cy="8.6" r="3.3" {...iconProps} />
+      <path d="M14.4 10.9L19 6.3" {...iconProps} />
     </Svg>
   )
 }
