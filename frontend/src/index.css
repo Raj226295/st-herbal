@@ -6714,6 +6714,13 @@ h3 {
   gap: 2px;
 }
 
+.admin-shell:not(.is-sidebar-ready) .admin-menu-group__trigger,
+.admin-shell:not(.is-sidebar-ready) .admin-menu-group__caret svg,
+.admin-shell:not(.is-sidebar-ready) .admin-menu-group__submenu,
+.admin-shell:not(.is-sidebar-ready) .admin-menu-group__submenu-item {
+  transition: none;
+}
+
 .admin-menu-group__trigger,
 .admin-shell__logout {
   display: flex;

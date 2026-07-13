@@ -634,13 +634,41 @@ function isSameCalendarDate(dateValue, comparisonDate) {
   )
 }
 
-function getAdminViewFromHash() {
-  if (typeof window === 'undefined') {
+function getAdminViewFromHash(hashValue) {
+  if (typeof window === 'undefined' && !hashValue) {
     return 'overview-dashboard'
   }
 
-  const normalizedHash = window.location.hash || adminDashboardHash
+  const normalizedHash = normalizeAdminHash(
+    hashValue ?? (typeof window !== 'undefined' ? window.location.hash : ''),
+  )
   return adminMenuItems.find((item) => item.hash === normalizedHash)?.view ?? 'overview-dashboard'
+}
+
+function normalizeAdminHash(hashValue = '') {
+  if (!hashValue || hashValue === '#/admin' || hashValue === '#/admin/') {
+    return adminDashboardHash
+  }
+
+  return hashValue
+}
+
+function syncAdminHashWithLocation() {
+  if (typeof window === 'undefined') {
+    return adminDashboardHash
+  }
+
+  const normalizedHash = normalizeAdminHash(window.location.hash)
+
+  if (window.location.hash !== normalizedHash) {
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${window.location.search}${normalizedHash}`,
+    )
+  }
+
+  return normalizedHash
 }
 
 function createOpenGroupState(activeView = 'overview-dashboard') {
@@ -648,6 +676,12 @@ function createOpenGroupState(activeView = 'overview-dashboard') {
 
   return Object.fromEntries(
     adminMenuGroups.map((group) => [group.id, group.id === activeGroupId]),
+  )
+}
+
+function areGroupStatesEqual(currentState, nextState) {
+  return adminMenuGroups.every(
+    (group) => Boolean(currentState?.[group.id]) === Boolean(nextState?.[group.id]),
   )
 }
 
@@ -1279,6 +1313,7 @@ function AdminLayout({
   children,
   isMobileOpen,
   isSidebarCollapsed,
+  isSidebarReady,
   onOverlayClick,
   sidebar,
   topbar,
@@ -1288,7 +1323,7 @@ function AdminLayout({
     <section
       className={`admin-dashboard admin-shell ${isMobileOpen ? 'is-sidebar-open' : ''} ${
         isSidebarCollapsed ? 'is-sidebar-collapsed' : ''
-      }`}
+      } ${isSidebarReady ? 'is-sidebar-ready' : ''}`}
     >
       {sidebar}
       {isMobileOpen ? (
@@ -1457,6 +1492,7 @@ function AdminDashboardPage({
   const [expandedGroups, setExpandedGroups] = useState(() =>
     createOpenGroupState(getAdminViewFromHash()),
   )
+  const [isSidebarReady, setIsSidebarReady] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -1487,16 +1523,19 @@ function AdminDashboardPage({
   })
 
   useEffect(() => {
-    if (window.location.hash === '#/admin' || window.location.hash === '#/admin/') {
-      window.location.hash = adminDashboardHash
-    }
+    syncAdminHashWithLocation()
+    setIsSidebarReady(true)
   }, [])
 
   useEffect(() => {
     function handleHashChange() {
-      const nextView = getAdminViewFromHash()
-      setActiveView(nextView)
-      setExpandedGroups(createOpenGroupState(nextView))
+      const nextView = getAdminViewFromHash(syncAdminHashWithLocation())
+      const nextExpandedGroups = createOpenGroupState(nextView)
+
+      setActiveView((currentValue) => (currentValue === nextView ? currentValue : nextView))
+      setExpandedGroups((currentValue) =>
+        areGroupStatesEqual(currentValue, nextExpandedGroups) ? currentValue : nextExpandedGroups,
+      )
     }
 
     window.addEventListener('hashchange', handleHashChange)
@@ -1855,9 +1894,12 @@ function AdminDashboardPage({
 
   function navigateToView(view, triggerLabel) {
     const nextItem = adminViewMap.get(view) ?? adminMenuItems[0]
+    const nextExpandedGroups = createOpenGroupState(nextItem.view)
 
-    setActiveView(nextItem.view)
-    setExpandedGroups(createOpenGroupState(nextItem.view))
+    setActiveView((currentValue) => (currentValue === nextItem.view ? currentValue : nextItem.view))
+    setExpandedGroups((currentValue) =>
+      areGroupStatesEqual(currentValue, nextExpandedGroups) ? currentValue : nextExpandedGroups,
+    )
     setIsSidebarOpen(false)
     setStatusMessage('')
     setErrorMessage('')
@@ -5203,6 +5245,7 @@ function AdminDashboardPage({
     <AdminLayout
       isMobileOpen={isSidebarOpen}
       isSidebarCollapsed={isSidebarCollapsed}
+      isSidebarReady={isSidebarReady}
       onOverlayClick={() => setIsSidebarOpen(false)}
       sidebar={
         <AdminSidebar
